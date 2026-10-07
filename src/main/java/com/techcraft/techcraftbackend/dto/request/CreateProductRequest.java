@@ -16,10 +16,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import tools.jackson.databind.PropertyNamingStrategies;
+import tools.jackson.databind.annotation.JsonNaming;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class CreateProductRequest {
 
     @NotBlank(message = "Tên linh kiện không được để trống")

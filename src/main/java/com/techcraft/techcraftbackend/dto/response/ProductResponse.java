@@ -13,10 +13,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import tools.jackson.databind.PropertyNamingStrategies;
+import tools.jackson.databind.annotation.JsonNaming;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class ProductResponse {
 
     private UUID id;

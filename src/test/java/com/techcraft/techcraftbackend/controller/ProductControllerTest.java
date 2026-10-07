@@ -120,4 +120,60 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data.name").value("Tên linh kiện không được để trống"));
     }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void createProduct_WithSnakeCasePayload_Success() throws Exception {
+        String jsonPayload = """
+        {
+          "name": "Intel Core i7-13700K",
+          "price": 10500000.00,
+          "stock_quantity": 20,
+          "category": "CPU",
+          "description": "Vi xử lý Intel Gen 13 mạnh mẽ cho gaming và đồ họa",
+          "is_active": true,
+          "detail": {
+            "socket": "LGA1700",
+            "cores": 16,
+            "threads": 24,
+            "base_clock_ghz": 3.4,
+            "boost_clock_ghz": 5.4,
+            "tdp_w": 125,
+            "memory_type": "DDR4/DDR5",
+            "integrated_gpu": true
+          },
+          "images": [
+            {
+              "image_url": "https://res.cloudinary.com/techcraft/cpu-i7-primary.png",
+              "is_primary": true,
+              "display_order": 0
+            },
+            {
+              "image_url": "https://res.cloudinary.com/techcraft/cpu-i7-box.png",
+              "is_primary": false,
+              "display_order": 1
+            }
+          ]
+        }
+        """;
+
+        ProductResponse response = ProductResponse.builder()
+                .id(UUID.randomUUID())
+                .name("Intel Core i7-13700K")
+                .price(new BigDecimal("10500000.00"))
+                .stockQuantity(20)
+                .category(ProductCategory.CPU)
+                .isActive(true)
+                .build();
+
+        when(productService.createProduct(any(CreateProductRequest.class))).thenReturn(response);
+
+        mockMvc.perform(post("/api/products")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.name").value("Intel Core i7-13700K"))
+                .andExpect(jsonPath("$.data.stock_quantity").value(20));
+    }
 }

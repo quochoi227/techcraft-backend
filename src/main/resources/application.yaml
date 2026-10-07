@@ -13,6 +13,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
 
 jwt:
   secret: ${SECRET_KEY}
@@ -29,3 +30,9 @@ app:
   password-reset-token-expiry-hours: 1
   frontend-url: ${FRONTEND_URL:http://localhost:5173}
   backend-url: ${BACKEND_URL:http://localhost:8080}
+  admin:
+    auto-create: ${ADMIN_AUTO_CREATE:true}
+    email: ${ADMIN_EMAIL:admin@techcraft.com}
+    password: ${ADMIN_PASSWORD:Admin@123456}
+    full-name: ${ADMIN_FULLNAME:Administrator}
+    phone: ${ADMIN_PHONE:0123456789}
