@@ -1,0 +1,31 @@
+spring:
+  application:
+    name: techcraft-backend
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+
+jwt:
+  secret: ${SECRET_KEY}
+  access-token-expiry-ms: ${ACCESS_TOKEN_EXPIRY_MS}
+  refresh-token-expiry-days: ${REFRESH_TOKEN_EXPIRY_DAYS}
+
+resend:
+  api-key: ${RESEND_API_KEY}
+  from-email: ${RESEND_FROM_EMAIL}
+  from-email-name: ${RESEND_FROM_EMAIL_NAME}
+
+app:
+  email-verification-token-expiry-hours: 24
+  password-reset-token-expiry-hours: 1
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  backend-url: ${BACKEND_URL:http://localhost:8080}
