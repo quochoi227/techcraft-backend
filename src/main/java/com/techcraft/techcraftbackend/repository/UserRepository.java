@@ -1,6 +1,7 @@
 package com.techcraft.techcraftbackend.repository;
 
 import com.techcraft.techcraftbackend.entity.User;
+import com.techcraft.techcraftbackend.enums.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -13,4 +14,6 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
 
     boolean existsByEmail(String email);
+
+    boolean existsByRole(Role role);
 }
