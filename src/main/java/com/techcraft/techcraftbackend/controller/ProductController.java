@@ -2,6 +2,8 @@ package com.techcraft.techcraftbackend.controller;
 
 import com.techcraft.techcraftbackend.dto.ApiResponse;
 import com.techcraft.techcraftbackend.dto.request.CreateProductRequest;
+import com.techcraft.techcraftbackend.dto.request.ProductFilterRequest;
+import com.techcraft.techcraftbackend.dto.response.PageResponse;
 import com.techcraft.techcraftbackend.dto.response.ProductResponse;
 import com.techcraft.techcraftbackend.service.ProductService;
 import jakarta.validation.Valid;
@@ -9,10 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/products")
@@ -20,6 +19,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class ProductController {
 
     private final ProductService productService;
+
+    @GetMapping
+    public ResponseEntity<ApiResponse<PageResponse<ProductResponse>>> getProducts(
+            @Valid @ModelAttribute ProductFilterRequest filter) {
+        PageResponse<ProductResponse> response = productService.getProducts(filter);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách sản phẩm thành công!", response));
+    }
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")

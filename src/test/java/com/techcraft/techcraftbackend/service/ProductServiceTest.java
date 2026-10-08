@@ -1,7 +1,9 @@
 package com.techcraft.techcraftbackend.service;
 
 import com.techcraft.techcraftbackend.dto.request.CreateProductRequest;
+import com.techcraft.techcraftbackend.dto.request.ProductFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.ProductImageRequest;
+import com.techcraft.techcraftbackend.dto.response.PageResponse;
 import com.techcraft.techcraftbackend.dto.response.ProductResponse;
 import com.techcraft.techcraftbackend.entity.Product;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
@@ -10,12 +12,24 @@ import com.techcraft.techcraftbackend.exception.DuplicateResourceException;
 import com.techcraft.techcraftbackend.mapper.ProductMapper;
 import com.techcraft.techcraftbackend.repository.ProductRepository;
 import com.techcraft.techcraftbackend.validator.ProductDetailValidator;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -159,6 +173,11 @@ class ProductServiceTest {
         verify(productRepository, never()).save(any());
     }
 
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Test
     void createProduct_DuplicateName_ThrowsDuplicateResourceException() {
         when(productRepository.existsByNameIgnoreCase(validRequest.getName())).thenReturn(true);
@@ -170,5 +189,174 @@ class ProductServiceTest {
         assertTrue(ex.getMessage().contains("đã tồn tại"));
         verify(productDetailValidator, never()).validateAndNormalize(any(), any());
         verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    void getProducts_DefaultFilter_Success() {
+        Product entity = Product.builder()
+                .id(UUID.randomUUID())
+                .name("Intel Core i7-13700K")
+                .price(new BigDecimal("10500000.00"))
+                .stockQuantity(10)
+                .category(ProductCategory.CPU)
+                .isActive(true)
+                .build();
+
+        ProductResponse responseDto = ProductResponse.builder()
+                .id(entity.getId())
+                .name(entity.getName())
+                .price(entity.getPrice())
+                .stockQuantity(entity.getStockQuantity())
+                .category(entity.getCategory())
+                .isActive(true)
+                .build();
+
+        Page<Product> page = new PageImpl<>(List.of(entity));
+        when(productRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+        when(productMapper.toResponse(entity)).thenReturn(responseDto);
+
+        ProductFilterRequest filter = new ProductFilterRequest();
+        PageResponse<ProductResponse> result = productService.getProducts(filter);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        assertEquals(1, result.getContent().size());
+        assertEquals("Intel Core i7-13700K", result.getContent().get(0).getName());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(productRepository).findAll(any(Specification.class), pageableCaptor.capture());
+        Pageable captured = pageableCaptor.getValue();
+        assertEquals(0, captured.getPageNumber());
+        assertEquals(12, captured.getPageSize());
+        assertEquals(Sort.Direction.DESC, captured.getSort().getOrderFor("createdAt").getDirection());
+    }
+
+    @Test
+    void getProducts_WithCustomFilterAndSorting_Success() {
+        Product entity = Product.builder()
+                .id(UUID.randomUUID())
+                .name("NVIDIA RTX 4070")
+                .price(new BigDecimal("16000000.00"))
+                .stockQuantity(5)
+                .category(ProductCategory.GPU)
+                .isActive(true)
+                .build();
+
+        ProductResponse responseDto = ProductResponse.builder()
+                .id(entity.getId())
+                .name(entity.getName())
+                .price(entity.getPrice())
+                .category(entity.getCategory())
+                .isActive(true)
+                .build();
+
+        Page<Product> page = new PageImpl<>(List.of(entity));
+        when(productRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+        when(productMapper.toResponse(entity)).thenReturn(responseDto);
+
+        ProductFilterRequest filter = ProductFilterRequest.builder()
+                .keyword("rtx")
+                .category(ProductCategory.GPU)
+                .minPrice(new BigDecimal("10000000.00"))
+                .maxPrice(new BigDecimal("20000000.00"))
+                .inStock(true)
+                .page(1)
+                .size(5)
+                .sortBy("price")
+                .sortDir("asc")
+                .build();
+
+        PageResponse<ProductResponse> result = productService.getProducts(filter);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        assertEquals("NVIDIA RTX 4070", result.getContent().get(0).getName());
+
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(productRepository).findAll(any(Specification.class), pageableCaptor.capture());
+        Pageable captured = pageableCaptor.getValue();
+        assertEquals(1, captured.getPageNumber());
+        assertEquals(5, captured.getPageSize());
+        assertEquals(Sort.Direction.ASC, captured.getSort().getOrderFor("price").getDirection());
+    }
+
+    @Test
+    void getProducts_MinPriceGreaterThanMaxPrice_ThrowsBadRequestException() {
+        ProductFilterRequest filter = ProductFilterRequest.builder()
+                .minPrice(new BigDecimal("20000000.00"))
+                .maxPrice(new BigDecimal("10000000.00"))
+                .build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                productService.getProducts(filter)
+        );
+
+        assertTrue(ex.getMessage().contains("không được lớn hơn"));
+        verify(productRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getProducts_NegativeMinPrice_ThrowsBadRequestException() {
+        ProductFilterRequest filter = ProductFilterRequest.builder()
+                .minPrice(new BigDecimal("-1000.00"))
+                .build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                productService.getProducts(filter)
+        );
+
+        assertTrue(ex.getMessage().contains("không được nhỏ hơn 0"));
+        verify(productRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getProducts_InvalidSortField_ThrowsBadRequestException() {
+        ProductFilterRequest filter = ProductFilterRequest.builder()
+                .sortBy("invalid_column")
+                .build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                productService.getProducts(filter)
+        );
+
+        assertTrue(ex.getMessage().contains("Trường sắp xếp không hợp lệ"));
+        verify(productRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getProducts_InvalidSortDir_ThrowsBadRequestException() {
+        ProductFilterRequest filter = ProductFilterRequest.builder()
+                .sortDir("sideways")
+                .build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                productService.getProducts(filter)
+        );
+
+        assertTrue(ex.getMessage().contains("Chiều sắp xếp (sortDir) không hợp lệ"));
+        verify(productRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getProducts_AsAdmin_AllowsAccess() {
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "admin@techcraft.com", "password", List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+        );
+        context.setAuthentication(auth);
+        SecurityContextHolder.setContext(context);
+
+        Page<Product> emptyPage = new PageImpl<>(List.of());
+        when(productRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(emptyPage);
+
+        ProductFilterRequest filter = ProductFilterRequest.builder()
+                .isActive(false)
+                .build();
+
+        PageResponse<ProductResponse> result = productService.getProducts(filter);
+
+        assertNotNull(result);
+        assertEquals(0, result.getTotalElements());
+        verify(productRepository).findAll(any(Specification.class), any(Pageable.class));
     }
 }

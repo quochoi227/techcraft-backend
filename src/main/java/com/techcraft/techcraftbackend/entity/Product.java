@@ -3,6 +3,7 @@ package com.techcraft.techcraftbackend.entity;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.BatchSize;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.UpdateTimestamp;
@@ -61,6 +62,8 @@ public class Product {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    @OrderBy("displayOrder ASC, createdAt ASC")
+    @BatchSize(size = 30)
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<ProductImage> images = new ArrayList<>();
