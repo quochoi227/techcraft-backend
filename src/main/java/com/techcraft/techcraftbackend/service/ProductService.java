@@ -9,6 +9,7 @@ import com.techcraft.techcraftbackend.entity.Product;
 import com.techcraft.techcraftbackend.entity.ProductImage;
 import com.techcraft.techcraftbackend.exception.BadRequestException;
 import com.techcraft.techcraftbackend.exception.DuplicateResourceException;
+import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
 import com.techcraft.techcraftbackend.mapper.ProductMapper;
 import com.techcraft.techcraftbackend.repository.ProductRepository;
 import com.techcraft.techcraftbackend.specification.ProductSpecification;
@@ -28,6 +29,7 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -92,6 +94,18 @@ public class ProductService {
 
             product.addImage(image);
         }
+    }
+
+    @Transactional(readOnly = true)
+    public ProductResponse getProductById(UUID id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy linh kiện với ID: " + id));
+
+        if (!product.isActive() && !isAdmin()) {
+            throw new ResourceNotFoundException("Không tìm thấy linh kiện với ID: " + id);
+        }
+
+        return productMapper.toResponse(product);
     }
 
     @Transactional(readOnly = true)

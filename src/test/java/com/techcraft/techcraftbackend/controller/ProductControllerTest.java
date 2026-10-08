@@ -3,6 +3,7 @@ package com.techcraft.techcraftbackend.controller;
 import com.techcraft.techcraftbackend.dto.request.CreateProductRequest;
 import com.techcraft.techcraftbackend.dto.response.ProductResponse;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
+import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
 import com.techcraft.techcraftbackend.service.ProductService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -260,6 +261,48 @@ class ProductControllerTest {
     void getProducts_InvalidCategory_Returns400BadRequest() throws Exception {
         mockMvc.perform(get("/api/products")
                         .param("category", "INVALID_CAT"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    void getProductById_PublicUser_Returns200AndProductResponse() throws Exception {
+        UUID id = UUID.randomUUID();
+        ProductResponse response = ProductResponse.builder()
+                .id(id)
+                .name("Intel Core i7-13700K")
+                .price(new BigDecimal("10500000.00"))
+                .stockQuantity(20)
+                .category(ProductCategory.CPU)
+                .isActive(true)
+                .build();
+
+        when(productService.getProductById(id)).thenReturn(response);
+
+        mockMvc.perform(get("/api/products/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Lấy thông tin chi tiết sản phẩm thành công!"))
+                .andExpect(jsonPath("$.data.id").value(id.toString()))
+                .andExpect(jsonPath("$.data.name").value("Intel Core i7-13700K"))
+                .andExpect(jsonPath("$.data.category").value("CPU"));
+    }
+
+    @Test
+    void getProductById_NotFound_Returns404NotFound() throws Exception {
+        UUID id = UUID.randomUUID();
+        when(productService.getProductById(id))
+                .thenThrow(new ResourceNotFoundException("Không tìm thấy linh kiện với ID: " + id));
+
+        mockMvc.perform(get("/api/products/{id}", id))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy linh kiện với ID: " + id));
+    }
+
+    @Test
+    void getProductById_InvalidUUID_Returns400BadRequest() throws Exception {
+        mockMvc.perform(get("/api/products/invalid-uuid-123"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
