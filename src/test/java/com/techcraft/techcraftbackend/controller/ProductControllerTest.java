@@ -12,14 +12,18 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import com.techcraft.techcraftbackend.dto.request.ProductFilterRequest;
+import com.techcraft.techcraftbackend.dto.response.PageResponse;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -175,5 +179,88 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.name").value("Intel Core i7-13700K"))
                 .andExpect(jsonPath("$.data.stock_quantity").value(20));
+    }
+
+    @Test
+    void getProducts_PublicUser_Returns200AndPageResponse() throws Exception {
+        ProductResponse item = ProductResponse.builder()
+                .id(UUID.randomUUID())
+                .name("Intel Core i5-13400F")
+                .price(new BigDecimal("5200000.00"))
+                .stockQuantity(15)
+                .category(ProductCategory.CPU)
+                .isActive(true)
+                .build();
+
+        PageResponse<ProductResponse> pageResponse = PageResponse.<ProductResponse>builder()
+                .content(List.of(item))
+                .page(0)
+                .size(12)
+                .totalElements(1)
+                .totalPages(1)
+                .first(true)
+                .last(true)
+                .empty(false)
+                .build();
+
+        when(productService.getProducts(any(ProductFilterRequest.class))).thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/products"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Lấy danh sách sản phẩm thành công!"))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(12))
+                .andExpect(jsonPath("$.data.total_elements").value(1))
+                .andExpect(jsonPath("$.data.content[0].name").value("Intel Core i5-13400F"))
+                .andExpect(jsonPath("$.data.content[0].stock_quantity").value(15));
+    }
+
+    @Test
+    void getProducts_WithQueryParams_Success() throws Exception {
+        ProductResponse item = ProductResponse.builder()
+                .id(UUID.randomUUID())
+                .name("MSI GeForce RTX 4060")
+                .price(new BigDecimal("8500000.00"))
+                .stockQuantity(8)
+                .category(ProductCategory.GPU)
+                .isActive(true)
+                .build();
+
+        PageResponse<ProductResponse> pageResponse = PageResponse.<ProductResponse>builder()
+                .content(List.of(item))
+                .page(0)
+                .size(10)
+                .totalElements(1)
+                .totalPages(1)
+                .first(true)
+                .last(true)
+                .empty(false)
+                .build();
+
+        when(productService.getProducts(any(ProductFilterRequest.class))).thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/products")
+                        .param("keyword", "rtx")
+                        .param("category", "GPU")
+                        .param("min_price", "5000000")
+                        .param("max_price", "10000000")
+                        .param("in_stock", "true")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .param("sort_by", "price")
+                        .param("sort_dir", "asc"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content[0].name").value("MSI GeForce RTX 4060"))
+                .andExpect(jsonPath("$.data.content[0].category").value("GPU"));
+    }
+
+    @Test
+    void getProducts_InvalidCategory_Returns400BadRequest() throws Exception {
+        mockMvc.perform(get("/api/products")
+                        .param("category", "INVALID_CAT"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
     }
 }
