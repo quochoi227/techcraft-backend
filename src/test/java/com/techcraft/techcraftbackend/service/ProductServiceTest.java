@@ -9,6 +9,7 @@ import com.techcraft.techcraftbackend.entity.Product;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
 import com.techcraft.techcraftbackend.exception.BadRequestException;
 import com.techcraft.techcraftbackend.exception.DuplicateResourceException;
+import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
 import com.techcraft.techcraftbackend.mapper.ProductMapper;
 import com.techcraft.techcraftbackend.repository.ProductRepository;
 import com.techcraft.techcraftbackend.validator.ProductDetailValidator;
@@ -35,6 +36,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -358,5 +360,103 @@ class ProductServiceTest {
         assertNotNull(result);
         assertEquals(0, result.getTotalElements());
         verify(productRepository).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getProductById_Success_ReturnsProductResponse() {
+        UUID id = UUID.randomUUID();
+        Product product = Product.builder()
+                .id(id)
+                .name("Intel Core i7-13700K")
+                .price(new BigDecimal("10500000.00"))
+                .stockQuantity(10)
+                .category(ProductCategory.CPU)
+                .isActive(true)
+                .build();
+
+        ProductResponse responseDto = ProductResponse.builder()
+                .id(id)
+                .name("Intel Core i7-13700K")
+                .price(new BigDecimal("10500000.00"))
+                .stockQuantity(10)
+                .category(ProductCategory.CPU)
+                .isActive(true)
+                .build();
+
+        when(productRepository.findById(id)).thenReturn(Optional.of(product));
+        when(productMapper.toResponse(product)).thenReturn(responseDto);
+
+        ProductResponse result = productService.getProductById(id);
+
+        assertNotNull(result);
+        assertEquals(id, result.getId());
+        assertEquals("Intel Core i7-13700K", result.getName());
+        verify(productRepository).findById(id);
+    }
+
+    @Test
+    void getProductById_NotFound_ThrowsResourceNotFoundException() {
+        UUID id = UUID.randomUUID();
+        when(productRepository.findById(id)).thenReturn(Optional.empty());
+
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class, () ->
+                productService.getProductById(id)
+        );
+
+        assertTrue(ex.getMessage().contains("Không tìm thấy linh kiện"));
+        verify(productRepository).findById(id);
+    }
+
+    @Test
+    void getProductById_InactiveProduct_AsPublicUser_ThrowsResourceNotFoundException() {
+        UUID id = UUID.randomUUID();
+        Product product = Product.builder()
+                .id(id)
+                .name("Hidden Product")
+                .isActive(false)
+                .build();
+
+        when(productRepository.findById(id)).thenReturn(Optional.of(product));
+
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class, () ->
+                productService.getProductById(id)
+        );
+
+        assertTrue(ex.getMessage().contains("Không tìm thấy linh kiện"));
+        verify(productMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void getProductById_InactiveProduct_AsAdmin_Success() {
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "admin@techcraft.com", "password", List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+        );
+        context.setAuthentication(auth);
+        SecurityContextHolder.setContext(context);
+
+        UUID id = UUID.randomUUID();
+        Product product = Product.builder()
+                .id(id)
+                .name("Hidden Product")
+                .isActive(false)
+                .build();
+
+        ProductResponse responseDto = ProductResponse.builder()
+                .id(id)
+                .name("Hidden Product")
+                .isActive(false)
+                .build();
+
+        when(productRepository.findById(id)).thenReturn(Optional.of(product));
+        when(productMapper.toResponse(product)).thenReturn(responseDto);
+
+        ProductResponse result = productService.getProductById(id);
+
+        assertNotNull(result);
+        assertEquals(id, result.getId());
+        assertEquals("Hidden Product", result.getName());
+        assertFalse(result.isActive());
+        verify(productRepository).findById(id);
     }
 }

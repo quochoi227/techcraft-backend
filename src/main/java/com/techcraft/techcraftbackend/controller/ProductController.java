@@ -13,6 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor
@@ -25,6 +27,12 @@ public class ProductController {
             @Valid @ModelAttribute ProductFilterRequest filter) {
         PageResponse<ProductResponse> response = productService.getProducts(filter);
         return ResponseEntity.ok(ApiResponse.success("Lấy danh sách sản phẩm thành công!", response));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<ProductResponse>> getProductById(@PathVariable UUID id) {
+        ProductResponse response = productService.getProductById(id);
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết sản phẩm thành công!", response));
     }
 
     @PostMapping
