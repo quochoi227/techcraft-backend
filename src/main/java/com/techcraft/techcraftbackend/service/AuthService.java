@@ -14,6 +14,7 @@ import com.techcraft.techcraftbackend.exception.AppException;
 import com.techcraft.techcraftbackend.exception.BadRequestException;
 import com.techcraft.techcraftbackend.exception.DuplicateResourceException;
 import com.techcraft.techcraftbackend.exception.UnauthorizedException;
+import com.techcraft.techcraftbackend.mapper.UserMapper;
 import com.techcraft.techcraftbackend.repository.EmailVerificationTokenRepository;
 import com.techcraft.techcraftbackend.repository.RefreshTokenRepository;
 import com.techcraft.techcraftbackend.repository.UserRepository;
@@ -44,6 +45,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
     private final JwtUtils jwtUtils;
+    private final UserMapper userMapper;
 
     @Value("${app.email-verification-token-expiry-hours:24}")
     private long tokenExpiryHours;
@@ -83,15 +85,7 @@ public class AuthService {
 
         emailService.sendVerificationEmail(savedUser.getEmail(), savedUser.getFullName(), token);
 
-        return RegisterResponse.builder()
-                .id(savedUser.getId())
-                .email(savedUser.getEmail())
-                .fullName(savedUser.getFullName())
-                .phone(savedUser.getPhone())
-                .address(savedUser.getAddress())
-                .role(savedUser.getRole())
-                .emailVerified(savedUser.isEmailVerified())
-                .build();
+        return userMapper.toRegisterResponse(savedUser);
     }
 
     @Transactional
@@ -151,15 +145,7 @@ public class AuthService {
         setAccessTokenCookie(response, accessToken, jwtUtils.getAccessTokenExpirySeconds());
         setRefreshTokenCookie(response, refreshTokenString, refreshTokenExpiryDays * 24 * 60 * 60);
 
-        UserSummaryResponse userSummary = UserSummaryResponse.builder()
-                .id(user.getId())
-                .email(user.getEmail())
-                .fullName(user.getFullName())
-                .phone(user.getPhone())
-                .address(user.getAddress())
-                .role(user.getRole())
-                .emailVerified(user.isEmailVerified())
-                .build();
+        UserSummaryResponse userSummary = userMapper.toUserSummaryResponse(user);
 
         return LoginResponse.builder()
                 .accessToken(accessToken)
