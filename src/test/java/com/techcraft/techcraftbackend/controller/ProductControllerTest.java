@@ -1,6 +1,7 @@
 package com.techcraft.techcraftbackend.controller;
 
 import com.techcraft.techcraftbackend.dto.request.CreateProductRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateProductRequest;
 import com.techcraft.techcraftbackend.dto.response.ProductResponse;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
 import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
@@ -23,9 +24,11 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -305,5 +308,171 @@ class ProductControllerTest {
         mockMvc.perform(get("/api/products/invalid-uuid-123"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void updateProduct_AsAdmin_Returns200Ok() throws Exception {
+        UUID id = UUID.randomUUID();
+        UpdateProductRequest request = UpdateProductRequest.builder()
+                .name("AMD Ryzen 7 7800X3D V2")
+                .price(new BigDecimal("11500000.00"))
+                .stockQuantity(18)
+                .category(ProductCategory.CPU)
+                .description("Updated Gaming CPU")
+                .detail(Map.of("socket", "AM5", "cores", 8, "threads", 16, "base_clock_ghz", 4.2, "boost_clock_ghz", 5.0, "tdp_w", 120, "memory_type", "DDR5", "integrated_gpu", true))
+                .isActive(true)
+                .build();
+
+        ProductResponse response = ProductResponse.builder()
+                .id(id)
+                .name(request.getName())
+                .price(request.getPrice())
+                .stockQuantity(request.getStockQuantity())
+                .category(ProductCategory.CPU)
+                .detail(request.getDetail())
+                .isActive(true)
+                .build();
+
+        when(productService.updateProduct(eq(id), any(UpdateProductRequest.class))).thenReturn(response);
+
+        mockMvc.perform(put("/api/products/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Cập nhật thông tin linh kiện thành công!"))
+                .andExpect(jsonPath("$.data.id").value(id.toString()))
+                .andExpect(jsonPath("$.data.name").value("AMD Ryzen 7 7800X3D V2"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void updateProduct_WithSnakeCasePayload_Success() throws Exception {
+        UUID id = UUID.randomUUID();
+        String jsonPayload = """
+        {
+          "name": "Intel Core i7-13700K Updated",
+          "price": 10900000.00,
+          "stock_quantity": 25,
+          "category": "CPU",
+          "description": "Vi xử lý Intel Gen 13 cập nhật",
+          "is_active": false,
+          "detail": {
+            "socket": "LGA1700",
+            "cores": 16,
+            "threads": 24,
+            "base_clock_ghz": 3.4,
+            "boost_clock_ghz": 5.4,
+            "tdp_w": 125,
+            "memory_type": "DDR4/DDR5",
+            "integrated_gpu": true
+          },
+          "images": [
+            {
+              "image_url": "https://res.cloudinary.com/techcraft/cpu-i7-primary.png",
+              "is_primary": true,
+              "display_order": 0
+            }
+          ]
+        }
+        """;
+
+        ProductResponse response = ProductResponse.builder()
+                .id(id)
+                .name("Intel Core i7-13700K Updated")
+                .price(new BigDecimal("10900000.00"))
+                .stockQuantity(25)
+                .category(ProductCategory.CPU)
+                .isActive(false)
+                .build();
+
+        when(productService.updateProduct(eq(id), any(UpdateProductRequest.class))).thenReturn(response);
+
+        mockMvc.perform(put("/api/products/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(jsonPayload))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.name").value("Intel Core i7-13700K Updated"))
+                .andExpect(jsonPath("$.data.stock_quantity").value(25))
+                .andExpect(jsonPath("$.data.is_active").value(false));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void updateProduct_AsRegularUser_Returns403Forbidden() throws Exception {
+        UUID id = UUID.randomUUID();
+        UpdateProductRequest request = UpdateProductRequest.builder()
+                .name("AMD Ryzen 7 7800X3D")
+                .price(new BigDecimal("11000000.00"))
+                .stockQuantity(15)
+                .category(ProductCategory.CPU)
+                .detail(Map.of("socket", "AM5"))
+                .build();
+
+        mockMvc.perform(put("/api/products/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updateProduct_Unauthenticated_Returns401Unauthorized() throws Exception {
+        UUID id = UUID.randomUUID();
+        UpdateProductRequest request = UpdateProductRequest.builder()
+                .name("AMD Ryzen 7 7800X3D")
+                .price(new BigDecimal("11000000.00"))
+                .stockQuantity(15)
+                .category(ProductCategory.CPU)
+                .detail(Map.of("socket", "AM5"))
+                .build();
+
+        mockMvc.perform(put("/api/products/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void updateProduct_NotFound_Returns404NotFound() throws Exception {
+        UUID id = UUID.randomUUID();
+        UpdateProductRequest request = UpdateProductRequest.builder()
+                .name("AMD Ryzen 7 7800X3D")
+                .price(new BigDecimal("11000000.00"))
+                .stockQuantity(15)
+                .category(ProductCategory.CPU)
+                .detail(Map.of("socket", "AM5"))
+                .build();
+
+        when(productService.updateProduct(eq(id), any(UpdateProductRequest.class)))
+                .thenThrow(new ResourceNotFoundException("Không tìm thấy linh kiện với ID: " + id));
+
+        mockMvc.perform(put("/api/products/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy linh kiện với ID: " + id));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void updateProduct_InvalidBodyMissingName_Returns400BadRequest() throws Exception {
+        UUID id = UUID.randomUUID();
+        UpdateProductRequest request = UpdateProductRequest.builder()
+                .price(new BigDecimal("11000000.00"))
+                .stockQuantity(15)
+                .category(ProductCategory.CPU)
+                .detail(Map.of("socket", "AM5"))
+                .build();
+
+        mockMvc.perform(put("/api/products/{id}", id)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.name").value("Tên linh kiện không được để trống"));
     }
 }

@@ -8,6 +8,9 @@ import com.techcraft.techcraftbackend.entity.ProductImage;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
+import com.techcraft.techcraftbackend.dto.request.UpdateProductRequest;
+import org.mapstruct.MappingTarget;
+
 @Mapper(componentModel = "spring")
 public interface ProductMapper {
 
@@ -17,6 +20,13 @@ public interface ProductMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "isActive", source = "isActive")
     Product toEntity(CreateProductRequest request);
+
+    @Mapping(target = "id", ignore = true)
+    @Mapping(target = "images", ignore = true)
+    @Mapping(target = "createdAt", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "active", ignore = true)
+    void updateEntityFromRequest(UpdateProductRequest request, @MappingTarget Product product);
 
     @Mapping(target = "isActive", source = "active")
     ProductResponse toResponse(Product product);

@@ -3,9 +3,11 @@ package com.techcraft.techcraftbackend.service;
 import com.techcraft.techcraftbackend.dto.request.CreateProductRequest;
 import com.techcraft.techcraftbackend.dto.request.ProductFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.ProductImageRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateProductRequest;
 import com.techcraft.techcraftbackend.dto.response.PageResponse;
 import com.techcraft.techcraftbackend.dto.response.ProductResponse;
 import com.techcraft.techcraftbackend.entity.Product;
+import com.techcraft.techcraftbackend.entity.ProductImage;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
 import com.techcraft.techcraftbackend.exception.BadRequestException;
 import com.techcraft.techcraftbackend.exception.DuplicateResourceException;
@@ -458,5 +460,214 @@ class ProductServiceTest {
         assertEquals("Hidden Product", result.getName());
         assertFalse(result.isActive());
         verify(productRepository).findById(id);
+    }
+
+    @Test
+    void updateProduct_Success_WithNewImages() {
+        UUID id = UUID.randomUUID();
+        Product existingProduct = Product.builder()
+                .id(id)
+                .name("Old Product Name")
+                .price(new BigDecimal("5000000.00"))
+                .stockQuantity(10)
+                .category(ProductCategory.CPU)
+                .detail(sampleDetail)
+                .isActive(true)
+                .images(new ArrayList<>())
+                .build();
+
+        UpdateProductRequest updateRequest = UpdateProductRequest.builder()
+                .name("Updated Core i7-13700K")
+                .price(new BigDecimal("10900000.00"))
+                .stockQuantity(25)
+                .category(ProductCategory.CPU)
+                .description("Updated description")
+                .detail(sampleDetail)
+                .isActive(false)
+                .images(List.of(
+                        ProductImageRequest.builder().imageUrl("https://example.com/new1.jpg").isPrimary(true).displayOrder(0).build(),
+                        ProductImageRequest.builder().imageUrl("https://example.com/new2.jpg").isPrimary(false).displayOrder(1).build()
+                ))
+                .build();
+
+        when(productRepository.findById(id)).thenReturn(Optional.of(existingProduct));
+        when(productRepository.existsByNameIgnoreCaseAndIdNot("Updated Core i7-13700K", id)).thenReturn(false);
+        when(productDetailValidator.validateAndNormalize(eq(ProductCategory.CPU), any())).thenReturn(sampleDetail);
+        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ProductResponse expectedResponse = ProductResponse.builder()
+                .id(id)
+                .name(updateRequest.getName())
+                .price(updateRequest.getPrice())
+                .stockQuantity(updateRequest.getStockQuantity())
+                .category(updateRequest.getCategory())
+                .detail(sampleDetail)
+                .isActive(false)
+                .build();
+        when(productMapper.toResponse(any(Product.class))).thenReturn(expectedResponse);
+
+        ProductResponse actualResponse = productService.updateProduct(id, updateRequest);
+
+        assertNotNull(actualResponse);
+        assertEquals(expectedResponse.getName(), actualResponse.getName());
+        assertFalse(actualResponse.isActive());
+        verify(productMapper).updateEntityFromRequest(eq(updateRequest), eq(existingProduct));
+        verify(productRepository).save(argThat(p ->
+                p.getName().equals("Updated Core i7-13700K") &&
+                !p.isActive() &&
+                p.getImages().size() == 2 &&
+                p.getImages().get(0).isPrimary() &&
+                !p.getImages().get(1).isPrimary()
+        ));
+    }
+
+    @Test
+    void updateProduct_Success_KeepExistingImages_WhenImagesNull() {
+        UUID id = UUID.randomUUID();
+        ProductImage existingImage = ProductImage.builder()
+                .id(UUID.randomUUID())
+                .imageUrl("https://example.com/existing.jpg")
+                .isPrimary(true)
+                .displayOrder(0)
+                .build();
+
+        Product existingProduct = Product.builder()
+                .id(id)
+                .name("Old Product Name")
+                .price(new BigDecimal("5000000.00"))
+                .stockQuantity(10)
+                .category(ProductCategory.CPU)
+                .detail(sampleDetail)
+                .isActive(true)
+                .images(new ArrayList<>(List.of(existingImage)))
+                .build();
+
+        UpdateProductRequest updateRequest = UpdateProductRequest.builder()
+                .name("Updated Name")
+                .price(new BigDecimal("6000000.00"))
+                .stockQuantity(15)
+                .category(ProductCategory.CPU)
+                .detail(sampleDetail)
+                .images(null) // null images -> keep existing
+                .build();
+
+        when(productRepository.findById(id)).thenReturn(Optional.of(existingProduct));
+        when(productRepository.existsByNameIgnoreCaseAndIdNot(anyString(), eq(id))).thenReturn(false);
+        when(productDetailValidator.validateAndNormalize(any(), any())).thenReturn(sampleDetail);
+        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(productMapper.toResponse(any(Product.class))).thenReturn(ProductResponse.builder().build());
+
+        productService.updateProduct(id, updateRequest);
+
+        verify(productRepository).save(argThat(p ->
+                p.getImages().size() == 1 &&
+                p.getImages().get(0).getImageUrl().equals("https://example.com/existing.jpg")
+        ));
+    }
+
+    @Test
+    void updateProduct_NotFound_ThrowsResourceNotFoundException() {
+        UUID id = UUID.randomUUID();
+        UpdateProductRequest updateRequest = UpdateProductRequest.builder()
+                .name("Any Name")
+                .build();
+
+        when(productRepository.findById(id)).thenReturn(Optional.empty());
+
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class, () ->
+                productService.updateProduct(id, updateRequest)
+        );
+
+        assertTrue(ex.getMessage().contains("Không tìm thấy linh kiện với ID: " + id));
+        verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    void updateProduct_DuplicateNameWithAnotherProduct_ThrowsDuplicateResourceException() {
+        UUID id = UUID.randomUUID();
+        Product existingProduct = Product.builder()
+                .id(id)
+                .name("Old Product Name")
+                .build();
+
+        UpdateProductRequest updateRequest = UpdateProductRequest.builder()
+                .name("Existed Name In System")
+                .build();
+
+        when(productRepository.findById(id)).thenReturn(Optional.of(existingProduct));
+        when(productRepository.existsByNameIgnoreCaseAndIdNot("Existed Name In System", id)).thenReturn(true);
+
+        DuplicateResourceException ex = assertThrows(DuplicateResourceException.class, () ->
+                productService.updateProduct(id, updateRequest)
+        );
+
+        assertTrue(ex.getMessage().contains("đã tồn tại"));
+        verify(productDetailValidator, never()).validateAndNormalize(any(), any());
+        verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    void updateProduct_SameNameCurrentProduct_Success() {
+        UUID id = UUID.randomUUID();
+        Product existingProduct = Product.builder()
+                .id(id)
+                .name("Current Name")
+                .price(new BigDecimal("5000000.00"))
+                .stockQuantity(10)
+                .category(ProductCategory.CPU)
+                .detail(sampleDetail)
+                .isActive(true)
+                .images(new ArrayList<>())
+                .build();
+
+        UpdateProductRequest updateRequest = UpdateProductRequest.builder()
+                .name("Current Name")
+                .price(new BigDecimal("5500000.00"))
+                .stockQuantity(12)
+                .category(ProductCategory.CPU)
+                .detail(sampleDetail)
+                .build();
+
+        when(productRepository.findById(id)).thenReturn(Optional.of(existingProduct));
+        when(productRepository.existsByNameIgnoreCaseAndIdNot("Current Name", id)).thenReturn(false);
+        when(productDetailValidator.validateAndNormalize(any(), any())).thenReturn(sampleDetail);
+        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(productMapper.toResponse(any(Product.class))).thenReturn(ProductResponse.builder().build());
+
+        assertDoesNotThrow(() -> productService.updateProduct(id, updateRequest));
+        verify(productRepository).save(any(Product.class));
+    }
+
+    @Test
+    void updateProduct_MultiplePrimaryImages_ThrowsBadRequestException() {
+        UUID id = UUID.randomUUID();
+        Product existingProduct = Product.builder()
+                .id(id)
+                .name("Old Name")
+                .images(new ArrayList<>())
+                .build();
+
+        UpdateProductRequest updateRequest = UpdateProductRequest.builder()
+                .name("Updated Name")
+                .price(new BigDecimal("5000000.00"))
+                .stockQuantity(10)
+                .category(ProductCategory.CPU)
+                .detail(sampleDetail)
+                .images(List.of(
+                        ProductImageRequest.builder().imageUrl("https://example.com/img1.jpg").isPrimary(true).build(),
+                        ProductImageRequest.builder().imageUrl("https://example.com/img2.jpg").isPrimary(true).build()
+                ))
+                .build();
+
+        when(productRepository.findById(id)).thenReturn(Optional.of(existingProduct));
+        when(productRepository.existsByNameIgnoreCaseAndIdNot("Updated Name", id)).thenReturn(false);
+        when(productDetailValidator.validateAndNormalize(any(), any())).thenReturn(sampleDetail);
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                productService.updateProduct(id, updateRequest)
+        );
+
+        assertTrue(ex.getMessage().contains("tối đa 1 ảnh"));
+        verify(productRepository, never()).save(any());
     }
 }
