@@ -25,7 +25,10 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -475,4 +478,48 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.data.name").value("Tên linh kiện không được để trống"));
     }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void deleteProduct_AsAdmin_Returns200Ok() throws Exception {
+        UUID id = UUID.randomUUID();
+        doNothing().when(productService).deleteProduct(id);
+
+        mockMvc.perform(delete("/api/products/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Xoá linh kiện thành công!"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void deleteProduct_AsRegularUser_Returns403Forbidden() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/products/{id}", id))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deleteProduct_Unauthenticated_Returns401Unauthorized() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/products/{id}", id))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void deleteProduct_NotFound_Returns404NotFound() throws Exception {
+        UUID id = UUID.randomUUID();
+        doThrow(new ResourceNotFoundException("Không tìm thấy linh kiện với ID: " + id))
+                .when(productService).deleteProduct(id);
+
+        mockMvc.perform(delete("/api/products/{id}", id))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy linh kiện với ID: " + id));
+    }
 }
+

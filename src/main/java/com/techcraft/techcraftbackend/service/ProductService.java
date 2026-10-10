@@ -102,6 +102,16 @@ public class ProductService {
         return productMapper.toResponse(updatedProduct);
     }
 
+    @Transactional
+    public void deleteProduct(UUID id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy linh kiện với ID: " + id));
+
+        product.setActive(false);
+        productRepository.save(product);
+        log.info("Soft-deleted product successfully with id: {}, name: {}", product.getId(), product.getName());
+    }
+
     private void applyImages(Product product, List<ProductImageRequest> imageRequests) {
         if (imageRequests == null || imageRequests.isEmpty()) {
             return;
