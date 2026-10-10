@@ -670,4 +670,35 @@ class ProductServiceTest {
         assertTrue(ex.getMessage().contains("tối đa 1 ảnh"));
         verify(productRepository, never()).save(any());
     }
+
+    @Test
+    void deleteProduct_Success_SoftDeletesProduct() {
+        UUID id = UUID.randomUUID();
+        Product existingProduct = Product.builder()
+                .id(id)
+                .name("Intel Core i7-13700K")
+                .isActive(true)
+                .build();
+
+        when(productRepository.findById(id)).thenReturn(Optional.of(existingProduct));
+        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertDoesNotThrow(() -> productService.deleteProduct(id));
+
+        assertFalse(existingProduct.isActive());
+        verify(productRepository).save(argThat(p -> p.getId().equals(id) && !p.isActive()));
+    }
+
+    @Test
+    void deleteProduct_NotFound_ThrowsResourceNotFoundException() {
+        UUID id = UUID.randomUUID();
+        when(productRepository.findById(id)).thenReturn(Optional.empty());
+
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class, () ->
+                productService.deleteProduct(id)
+        );
+
+        assertTrue(ex.getMessage().contains("Không tìm thấy linh kiện với ID: " + id));
+        verify(productRepository, never()).save(any());
+    }
 }

@@ -54,4 +54,11 @@ public class ProductController {
         ProductResponse response = productService.updateProduct(id, request);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin linh kiện thành công!", response));
     }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deleteProduct(@PathVariable UUID id) {
+        productService.deleteProduct(id);
+        return ResponseEntity.ok(ApiResponse.success("Xoá linh kiện thành công!", null));
+    }
 }
