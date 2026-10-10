@@ -6,6 +6,7 @@ import com.techcraft.techcraftbackend.dto.request.ProductFilterRequest;
 import com.techcraft.techcraftbackend.dto.response.PageResponse;
 import com.techcraft.techcraftbackend.dto.response.ProductResponse;
 import com.techcraft.techcraftbackend.service.ProductService;
+import com.techcraft.techcraftbackend.dto.request.UpdateProductRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -43,5 +44,14 @@ public class ProductController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Tạo linh kiện máy tính mới thành công!", response));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateProductRequest request) {
+        ProductResponse response = productService.updateProduct(id, request);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật thông tin linh kiện thành công!", response));
     }
 }

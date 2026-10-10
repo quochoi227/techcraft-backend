@@ -3,6 +3,7 @@ package com.techcraft.techcraftbackend.service;
 import com.techcraft.techcraftbackend.dto.request.CreateProductRequest;
 import com.techcraft.techcraftbackend.dto.request.ProductFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.ProductImageRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateProductRequest;
 import com.techcraft.techcraftbackend.dto.response.PageResponse;
 import com.techcraft.techcraftbackend.dto.response.ProductResponse;
 import com.techcraft.techcraftbackend.entity.Product;
@@ -28,6 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -57,7 +59,7 @@ public class ProductService {
         product.setDetail(validatedDetail);
         product.setActive(request.getIsActive() == null || request.getIsActive());
 
-        processImages(product, request);
+        applyImages(product, request.getImages());
 
         Product savedProduct = productRepository.save(product);
         log.info("Created new product successfully with id: {}, name: {}, category: {}",
@@ -66,12 +68,46 @@ public class ProductService {
         return productMapper.toResponse(savedProduct);
     }
 
-    private void processImages(Product product, CreateProductRequest request) {
-        if (request.getImages() == null || request.getImages().isEmpty()) {
+    @Transactional
+    public ProductResponse updateProduct(UUID id, UpdateProductRequest request) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy linh kiện với ID: " + id));
+
+        String trimmedName = request.getName().trim();
+        if (productRepository.existsByNameIgnoreCaseAndIdNot(trimmedName, id)) {
+            throw new DuplicateResourceException("Linh kiện với tên '" + trimmedName + "' đã tồn tại trong hệ thống");
+        }
+
+        Map<String, Object> validatedDetail = productDetailValidator.validateAndNormalize(
+                request.getCategory(),
+                request.getDetail()
+        );
+
+        productMapper.updateEntityFromRequest(request, product);
+        product.setName(trimmedName);
+        product.setDetail(validatedDetail);
+        if (request.getIsActive() != null) {
+            product.setActive(request.getIsActive());
+        }
+
+        if (request.getImages() != null) {
+            product.getImages().clear();
+            applyImages(product, request.getImages());
+        }
+
+        Product updatedProduct = productRepository.save(product);
+        log.info("Updated product successfully with id: {}, name: {}, category: {}",
+                updatedProduct.getId(), updatedProduct.getName(), updatedProduct.getCategory());
+
+        return productMapper.toResponse(updatedProduct);
+    }
+
+    private void applyImages(Product product, List<ProductImageRequest> imageRequests) {
+        if (imageRequests == null || imageRequests.isEmpty()) {
             return;
         }
 
-        long primaryCount = request.getImages().stream()
+        long primaryCount = imageRequests.stream()
                 .filter(img -> Boolean.TRUE.equals(img.getIsPrimary()))
                 .count();
 
@@ -81,8 +117,8 @@ public class ProductService {
 
         boolean hasPrimary = primaryCount == 1;
 
-        for (int i = 0; i < request.getImages().size(); i++) {
-            ProductImageRequest imgReq = request.getImages().get(i);
+        for (int i = 0; i < imageRequests.size(); i++) {
+            ProductImageRequest imgReq = imageRequests.get(i);
             boolean isPrimary = hasPrimary ? Boolean.TRUE.equals(imgReq.getIsPrimary()) : (i == 0);
             int displayOrder = (imgReq.getDisplayOrder() != null) ? imgReq.getDisplayOrder() : i;
 
