@@ -261,6 +261,35 @@ class CompatibilityCheckerServiceTest {
         assertTrue(result.getViolations().stream().anyMatch(v -> v.contains("đã hết hàng trong kho")));
     }
 
+    @Test
+    void resolveProductsByCategory_ValidAndInvalidItems_PopulatesMapAndViolations() {
+        Product cpu = validComponents.get(ProductCategory.CPU);
+        UUID missingId = UUID.randomUUID();
+
+        org.mockito.Mockito.when(productRepository.findAllById(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(List.of(cpu));
+
+        List<com.techcraft.techcraftbackend.dto.request.PcCaseItemRequest> itemRequests = List.of(
+                com.techcraft.techcraftbackend.dto.request.PcCaseItemRequest.builder()
+                        .category(ProductCategory.CPU)
+                        .productId(cpu.getId())
+                        .build(),
+                com.techcraft.techcraftbackend.dto.request.PcCaseItemRequest.builder()
+                        .category(ProductCategory.GPU)
+                        .productId(missingId)
+                        .build()
+        );
+
+        List<String> violations = new java.util.ArrayList<>();
+        Map<ProductCategory, Product> resolved =
+                compatibilityCheckerService.resolveProductsByCategory(itemRequests, violations);
+
+        assertEquals(1, resolved.size());
+        assertEquals(cpu, resolved.get(ProductCategory.CPU));
+        assertEquals(1, violations.size());
+        assertTrue(violations.get(0).contains(missingId.toString()));
+    }
+
     private Product buildProduct(ProductCategory category, String name, int stock, Map<String, Object> detail) {
         return Product.builder()
                 .id(UUID.randomUUID())
