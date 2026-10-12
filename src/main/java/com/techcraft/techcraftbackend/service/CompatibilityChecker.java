@@ -19,4 +19,9 @@ public interface CompatibilityChecker {
     CompatibilityResult checkItems(List<PcCaseItemRequest> itemRequests);
 
     CompatibilityResult checkProducts(Map<ProductCategory, Product> componentsByCategory);
+
+    Map<ProductCategory, Product> resolveProductsByCategory(
+            List<PcCaseItemRequest> itemRequests,
+            List<String> violations
+    );
 }

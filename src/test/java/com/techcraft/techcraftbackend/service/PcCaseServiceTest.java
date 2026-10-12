@@ -11,7 +11,6 @@ import com.techcraft.techcraftbackend.exception.BadRequestException;
 import com.techcraft.techcraftbackend.exception.DuplicateResourceException;
 import com.techcraft.techcraftbackend.mapper.PcCaseMapper;
 import com.techcraft.techcraftbackend.repository.PcCaseRepository;
-import com.techcraft.techcraftbackend.repository.ProductRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,9 +33,6 @@ class PcCaseServiceTest {
     private PcCaseRepository pcCaseRepository;
 
     @Mock
-    private ProductRepository productRepository;
-
-    @Mock
     private CompatibilityChecker compatibilityChecker;
 
     @Mock
@@ -45,12 +41,12 @@ class PcCaseServiceTest {
     @InjectMocks
     private PcCaseService pcCaseService;
 
-    private List<Product> sampleProducts;
+    private Map<ProductCategory, Product> sampleProductsByCategory;
     private List<PcCaseItemRequest> sampleItemRequests;
 
     @BeforeEach
     void setUp() {
-        sampleProducts = new ArrayList<>();
+        sampleProductsByCategory = new EnumMap<>(ProductCategory.class);
         sampleItemRequests = new ArrayList<>();
 
         for (ProductCategory category : ProductCategory.values()) {
@@ -64,7 +60,7 @@ class PcCaseServiceTest {
                     .detail(Map.of())
                     .isActive(true)
                     .build();
-            sampleProducts.add(product);
+            sampleProductsByCategory.put(category, product);
             sampleItemRequests.add(PcCaseItemRequest.builder()
                     .category(category)
                     .productId(id)
@@ -83,7 +79,7 @@ class PcCaseServiceTest {
                 .build();
 
         when(pcCaseRepository.existsByNameIgnoreCase("Gaming Entry 2025")).thenReturn(false);
-        when(productRepository.findAllById(any())).thenReturn(sampleProducts);
+        when(compatibilityChecker.resolveProductsByCategory(any(), any())).thenReturn(sampleProductsByCategory);
         when(compatibilityChecker.checkProducts(any())).thenReturn(CompatibilityResult.ok());
         when(pcCaseRepository.save(any(PcCase.class))).thenAnswer(inv -> {
             PcCase saved = inv.getArgument(0);
@@ -159,7 +155,7 @@ class PcCaseServiceTest {
                 .build();
 
         when(pcCaseRepository.existsByNameIgnoreCase("Incompatible PC")).thenReturn(false);
-        when(productRepository.findAllById(any())).thenReturn(sampleProducts);
+        when(compatibilityChecker.resolveProductsByCategory(any(), any())).thenReturn(sampleProductsByCategory);
         when(compatibilityChecker.checkProducts(any())).thenReturn(
                 CompatibilityResult.fail(List.of("Socket của CPU (AM5) không tương thích với socket của Mainboard (LGA1700)"))
         );

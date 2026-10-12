@@ -52,6 +52,22 @@ public class CompatibilityCheckerService implements CompatibilityChecker {
         }
 
         List<String> violations = new ArrayList<>();
+        Map<ProductCategory, Product> componentsByCategory = resolveProductsByCategory(itemRequests, violations);
+
+        CompatibilityResult productResult = checkProducts(componentsByCategory);
+        violations.addAll(productResult.getViolations());
+
+        return violations.isEmpty()
+                ? CompatibilityResult.ok()
+                : CompatibilityResult.fail(violations);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<ProductCategory, Product> resolveProductsByCategory(
+            List<PcCaseItemRequest> itemRequests,
+            List<String> violations
+    ) {
         List<UUID> productIds = itemRequests.stream()
                 .map(PcCaseItemRequest::getProductId)
                 .filter(Objects::nonNull)
@@ -96,12 +112,7 @@ public class CompatibilityCheckerService implements CompatibilityChecker {
             componentsByCategory.put(category, product);
         }
 
-        CompatibilityResult productResult = checkProducts(componentsByCategory);
-        violations.addAll(productResult.getViolations());
-
-        return violations.isEmpty()
-                ? CompatibilityResult.ok()
-                : CompatibilityResult.fail(violations);
+        return componentsByCategory;
     }
 
     @Override

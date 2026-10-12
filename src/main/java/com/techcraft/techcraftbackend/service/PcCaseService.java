@@ -13,7 +13,6 @@ import com.techcraft.techcraftbackend.exception.BadRequestException;
 import com.techcraft.techcraftbackend.exception.DuplicateResourceException;
 import com.techcraft.techcraftbackend.mapper.PcCaseMapper;
 import com.techcraft.techcraftbackend.repository.PcCaseRepository;
-import com.techcraft.techcraftbackend.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,8 +21,6 @@ import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -31,7 +28,6 @@ import java.util.stream.Collectors;
 public class PcCaseService {
 
     private final PcCaseRepository pcCaseRepository;
-    private final ProductRepository productRepository;
     private final CompatibilityChecker compatibilityChecker;
     private final PcCaseMapper pcCaseMapper;
 
@@ -48,7 +44,8 @@ public class PcCaseService {
         }
 
         List<String> violations = new ArrayList<>();
-        Map<ProductCategory, Product> componentsByCategory = resolveProductsByCategory(itemRequests, violations);
+        Map<ProductCategory, Product> componentsByCategory =
+                compatibilityChecker.resolveProductsByCategory(itemRequests, violations);
 
         CompatibilityResult productCheckResult = compatibilityChecker.checkProducts(componentsByCategory);
         violations.addAll(productCheckResult.getViolations());
@@ -96,56 +93,5 @@ public class PcCaseService {
     @Transactional(readOnly = true)
     public CompatibilityResult validatePcCase(ValidatePcCaseRequest request) {
         return compatibilityChecker.check(request);
-    }
-
-    private Map<ProductCategory, Product> resolveProductsByCategory(
-            List<PcCaseItemRequest> itemRequests,
-            List<String> violations
-    ) {
-        List<UUID> productIds = itemRequests.stream()
-                .map(PcCaseItemRequest::getProductId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-
-        Map<UUID, Product> productsById = productRepository.findAllById(productIds).stream()
-                .collect(Collectors.toMap(Product::getId, Function.identity()));
-
-        Map<ProductCategory, Product> componentsByCategory = new EnumMap<>(ProductCategory.class);
-
-        for (PcCaseItemRequest itemReq : itemRequests) {
-            UUID productId = itemReq.getProductId();
-            if (productId == null) {
-                violations.add("ID linh kiện (product_id) không được để trống");
-                continue;
-            }
-
-            Product product = productsById.get(productId);
-            if (product == null) {
-                violations.add("Không tìm thấy linh kiện với ID: " + productId);
-                continue;
-            }
-
-            if (itemReq.getCategory() != null && itemReq.getCategory() != product.getCategory()) {
-                violations.add(String.format(
-                        "Linh kiện '%s' thuộc danh mục %s, không khớp với danh mục được chọn (%s)",
-                        product.getName(), product.getCategory(), itemReq.getCategory()
-                ));
-                continue;
-            }
-
-            ProductCategory category = product.getCategory();
-            if (componentsByCategory.containsKey(category)) {
-                violations.add(String.format(
-                        "Danh mục %s bị trùng lặp (mỗi danh mục chỉ được chọn 1 linh kiện)",
-                        category
-                ));
-                continue;
-            }
-
-            componentsByCategory.put(category, product);
-        }
-
-        return componentsByCategory;
     }
 }
