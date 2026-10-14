@@ -184,10 +184,18 @@ class PcCaseServiceTest {
                 .id(caseId)
                 .name("Old Gaming PC")
                 .useCase("office")
-                .totalPrice(new BigDecimal("10000000.00"))
+                .totalPrice(new BigDecimal("8000000.00"))
                 .description("Old description")
                 .isActive(true)
                 .build();
+
+        for (ProductCategory category : ProductCategory.values()) {
+            existingCase.addItem(PcCaseItem.builder()
+                    .id(UUID.randomUUID())
+                    .category(category)
+                    .product(Product.builder().id(UUID.randomUUID()).name("Old " + category).price(new BigDecimal("1000000.00")).build())
+                    .build());
+        }
 
         UpdatePcCaseRequest request = UpdatePcCaseRequest.builder()
                 .name("Updated Gaming PC 2026")

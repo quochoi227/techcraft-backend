@@ -29,6 +29,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -144,16 +146,31 @@ public class PcCaseServiceImpl implements PcCaseService {
                     .reduce(BigDecimal.ZERO, BigDecimal::add);
 
             pcCase.setTotalPrice(totalPrice);
-            pcCase.getItems().clear();
 
+            if (pcCase.getItems() == null) {
+                pcCase.setItems(new ArrayList<>());
+            }
+
+            Map<ProductCategory, PcCaseItem> existingItemsByCategory = pcCase.getItems().stream()
+                    .collect(Collectors.toMap(PcCaseItem::getCategory, Function.identity(), (a, b) -> a));
+
+            // Xóa các item thuộc category không còn nằm trong componentsByCategory
+            pcCase.getItems().removeIf(item -> !componentsByCategory.containsKey(item.getCategory()));
+
+            // Cập nhật sản phẩm cho category đã tồn tại hoặc thêm mới category chưa có
             for (ProductCategory category : ProductCategory.values()) {
                 Product product = componentsByCategory.get(category);
                 if (product != null) {
-                    PcCaseItem item = PcCaseItem.builder()
-                            .category(category)
-                            .product(product)
-                            .build();
-                    pcCase.addItem(item);
+                    PcCaseItem existingItem = existingItemsByCategory.get(category);
+                    if (existingItem != null) {
+                        existingItem.setProduct(product);
+                    } else {
+                        PcCaseItem item = PcCaseItem.builder()
+                                .category(category)
+                                .product(product)
+                                .build();
+                        pcCase.addItem(item);
+                    }
                 }
             }
         }
