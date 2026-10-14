@@ -18,6 +18,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import com.techcraft.techcraftbackend.service.impl.PcCaseServiceImpl;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -39,7 +40,7 @@ class PcCaseServiceTest {
     private PcCaseMapper pcCaseMapper;
 
     @InjectMocks
-    private PcCaseService pcCaseService;
+    private PcCaseServiceImpl pcCaseService;
 
     private Map<ProductCategory, Product> sampleProductsByCategory;
     private List<PcCaseItemRequest> sampleItemRequests;

@@ -1,4 +1,4 @@
-package com.techcraft.techcraftbackend.service;
+package com.techcraft.techcraftbackend.service.impl;
 
 import com.techcraft.techcraftbackend.dto.detail.*;
 import com.techcraft.techcraftbackend.dto.request.CreatePcCaseRequest;
@@ -8,6 +8,7 @@ import com.techcraft.techcraftbackend.dto.response.CompatibilityResult;
 import com.techcraft.techcraftbackend.entity.Product;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
 import com.techcraft.techcraftbackend.repository.ProductRepository;
+import com.techcraft.techcraftbackend.service.CompatibilityChecker;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,7 +22,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class CompatibilityCheckerService implements CompatibilityChecker {
+public class CompatibilityCheckerServiceImpl implements CompatibilityChecker {
 
     private final ProductRepository productRepository;
     private final ObjectMapper objectMapper;

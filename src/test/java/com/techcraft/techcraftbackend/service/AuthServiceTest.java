@@ -14,6 +14,7 @@ import com.techcraft.techcraftbackend.repository.EmailVerificationTokenRepositor
 import com.techcraft.techcraftbackend.repository.RefreshTokenRepository;
 import com.techcraft.techcraftbackend.repository.UserRepository;
 import com.techcraft.techcraftbackend.security.JwtUtils;
+import com.techcraft.techcraftbackend.service.impl.AuthServiceImpl;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,7 +60,7 @@ class AuthServiceTest {
     private HttpServletResponse httpServletResponse;
 
     @InjectMocks
-    private AuthService authService;
+    private AuthServiceImpl authService;
 
     @BeforeEach
     void setUp() {
