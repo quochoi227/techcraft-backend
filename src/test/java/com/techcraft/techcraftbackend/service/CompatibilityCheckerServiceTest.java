@@ -4,6 +4,7 @@ import com.techcraft.techcraftbackend.dto.response.CompatibilityResult;
 import com.techcraft.techcraftbackend.entity.Product;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
 import com.techcraft.techcraftbackend.repository.ProductRepository;
+import com.techcraft.techcraftbackend.service.impl.CompatibilityCheckerServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -25,14 +26,14 @@ class CompatibilityCheckerServiceTest {
     @Mock
     private ProductRepository productRepository;
 
-    private CompatibilityCheckerService compatibilityCheckerService;
+    private CompatibilityCheckerServiceImpl compatibilityCheckerService;
 
     private Map<ProductCategory, Product> validComponents;
 
     @BeforeEach
     void setUp() {
         ObjectMapper objectMapper = new ObjectMapper();
-        compatibilityCheckerService = new CompatibilityCheckerService(productRepository, objectMapper);
+        compatibilityCheckerService = new CompatibilityCheckerServiceImpl(productRepository, objectMapper);
 
         validComponents = new EnumMap<>(ProductCategory.class);
         validComponents.put(ProductCategory.CPU, buildProduct(ProductCategory.CPU, "Intel Core i5-13400F", 10, Map.of(
