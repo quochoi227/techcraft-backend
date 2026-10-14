@@ -2,6 +2,7 @@ package com.techcraft.techcraftbackend.service.impl;
 
 import com.techcraft.techcraftbackend.dto.request.CreatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.PcCaseItemRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.ValidatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CompatibilityResult;
 import com.techcraft.techcraftbackend.dto.response.PcCaseResponse;
@@ -11,6 +12,7 @@ import com.techcraft.techcraftbackend.entity.Product;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
 import com.techcraft.techcraftbackend.exception.BadRequestException;
 import com.techcraft.techcraftbackend.exception.DuplicateResourceException;
+import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
 import com.techcraft.techcraftbackend.mapper.PcCaseMapper;
 import com.techcraft.techcraftbackend.repository.PcCaseRepository;
 import com.techcraft.techcraftbackend.service.CompatibilityChecker;
@@ -26,6 +28,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -94,6 +99,87 @@ public class PcCaseServiceImpl implements PcCaseService {
         log.info("PC Case created at: {}, updated at: {}", savedPcCase.getCreatedAt(), savedPcCase.getUpdatedAt());
 
         return pcCaseMapper.toResponse(savedPcCase);
+    }
+
+    @Override
+    @Transactional
+    public PcCaseResponse updatePcCase(UUID id, UpdatePcCaseRequest request) {
+        PcCase pcCase = pcCaseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + id));
+
+        String trimmedName = request.getName().trim();
+        if (pcCaseRepository.existsByNameIgnoreCaseAndIdNot(trimmedName, id)) {
+            throw new DuplicateResourceException("Cấu hình PC với tên '" + trimmedName + "' đã tồn tại trong hệ thống");
+        }
+
+        pcCase.setName(trimmedName);
+        pcCase.setUseCase(StringUtils.hasText(request.getUseCase()) ? request.getUseCase().trim() : null);
+        pcCase.setDescription(request.getDescription());
+        if (request.getIsActive() != null) {
+            pcCase.setActive(request.getIsActive());
+        }
+
+        if (request.hasItemUpdates()) {
+            List<PcCaseItemRequest> itemRequests = request.resolveItems();
+            if (itemRequests.isEmpty()) {
+                throw new BadRequestException("Danh sách linh kiện của cấu hình PC không được để trống");
+            }
+
+            List<String> violations = new ArrayList<>();
+            Map<ProductCategory, Product> componentsByCategory =
+                    compatibilityChecker.resolveProductsByCategory(itemRequests, violations);
+
+            CompatibilityResult productCheckResult = compatibilityChecker.checkProducts(componentsByCategory);
+            violations.addAll(productCheckResult.getViolations());
+
+            if (!violations.isEmpty()) {
+                CompatibilityResult failedResult = CompatibilityResult.fail(violations);
+                throw new BadRequestException(
+                        "Cấu hình PC không tương thích: " + String.join("; ", violations),
+                        failedResult
+                );
+            }
+
+            BigDecimal totalPrice = componentsByCategory.values().stream()
+                    .map(Product::getPrice)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            pcCase.setTotalPrice(totalPrice);
+
+            if (pcCase.getItems() == null) {
+                pcCase.setItems(new ArrayList<>());
+            }
+
+            Map<ProductCategory, PcCaseItem> existingItemsByCategory = pcCase.getItems().stream()
+                    .collect(Collectors.toMap(PcCaseItem::getCategory, Function.identity(), (a, b) -> a));
+
+            // Xóa các item thuộc category không còn nằm trong componentsByCategory
+            pcCase.getItems().removeIf(item -> !componentsByCategory.containsKey(item.getCategory()));
+
+            // Cập nhật sản phẩm cho category đã tồn tại hoặc thêm mới category chưa có
+            for (ProductCategory category : ProductCategory.values()) {
+                Product product = componentsByCategory.get(category);
+                if (product != null) {
+                    PcCaseItem existingItem = existingItemsByCategory.get(category);
+                    if (existingItem != null) {
+                        existingItem.setProduct(product);
+                    } else {
+                        PcCaseItem item = PcCaseItem.builder()
+                                .category(category)
+                                .product(product)
+                                .build();
+                        pcCase.addItem(item);
+                    }
+                }
+            }
+        }
+
+        PcCase updatedPcCase = pcCaseRepository.save(pcCase);
+        log.info("Updated PC Case successfully with id: {}, name: {}, totalPrice: {}",
+                updatedPcCase.getId(), updatedPcCase.getName(), updatedPcCase.getTotalPrice());
+
+        return pcCaseMapper.toResponse(updatedPcCase);
     }
 
     @Override
