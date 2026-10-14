@@ -2,6 +2,7 @@ package com.techcraft.techcraftbackend.service;
 
 import com.techcraft.techcraftbackend.dto.request.CreatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.PcCaseItemRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.ValidatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CompatibilityResult;
 import com.techcraft.techcraftbackend.entity.Product;
@@ -13,6 +14,8 @@ import java.util.Map;
 public interface CompatibilityChecker {
 
     CompatibilityResult check(CreatePcCaseRequest request);
+
+    CompatibilityResult check(UpdatePcCaseRequest request);
 
     CompatibilityResult check(ValidatePcCaseRequest request);
 

@@ -3,6 +3,7 @@ package com.techcraft.techcraftbackend.service.impl;
 import com.techcraft.techcraftbackend.dto.detail.*;
 import com.techcraft.techcraftbackend.dto.request.CreatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.PcCaseItemRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.ValidatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CompatibilityResult;
 import com.techcraft.techcraftbackend.entity.Product;
@@ -30,6 +31,15 @@ public class CompatibilityCheckerServiceImpl implements CompatibilityChecker {
     @Override
     @Transactional(readOnly = true)
     public CompatibilityResult check(CreatePcCaseRequest request) {
+        if (request == null) {
+            return CompatibilityResult.fail(List.of("Yêu cầu kiểm tra cấu hình PC không được để trống"));
+        }
+        return checkItems(request.resolveItems());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CompatibilityResult check(UpdatePcCaseRequest request) {
         if (request == null) {
             return CompatibilityResult.fail(List.of("Yêu cầu kiểm tra cấu hình PC không được để trống"));
         }

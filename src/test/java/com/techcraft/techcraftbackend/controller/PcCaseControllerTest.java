@@ -2,11 +2,13 @@ package com.techcraft.techcraftbackend.controller;
 
 import com.techcraft.techcraftbackend.dto.request.CreatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.PcCaseItemRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.ValidatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CompatibilityResult;
 import com.techcraft.techcraftbackend.dto.response.PcCaseResponse;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
 import com.techcraft.techcraftbackend.exception.BadRequestException;
+import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
 import com.techcraft.techcraftbackend.service.PcCaseService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,8 +25,10 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -169,5 +173,132 @@ class PcCaseControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.compatible").value(true))
                 .andExpect(jsonPath("$.data.violations").isEmpty());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void updatePcCase_AsAdmin_Returns200Ok() throws Exception {
+        UUID caseId = UUID.randomUUID();
+        UpdatePcCaseRequest request = UpdatePcCaseRequest.builder()
+                .name("Gaming Ultra 2026")
+                .useCase("gaming")
+                .description("Cấu hình nâng cấp chiến game 4K")
+                .isActive(true)
+                .build();
+
+        PcCaseResponse response = PcCaseResponse.builder()
+                .id(caseId)
+                .name("Gaming Ultra 2026")
+                .useCase("gaming")
+                .totalPrice(new BigDecimal("35000000.00"))
+                .description("Cấu hình nâng cấp chiến game 4K")
+                .isActive(true)
+                .build();
+
+        when(pcCaseService.updatePcCase(eq(caseId), any(UpdatePcCaseRequest.class))).thenReturn(response);
+
+        mockMvc.perform(put("/api/admin/pc-cases/{id}", caseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Cập nhật cấu hình PC thành công!"))
+                .andExpect(jsonPath("$.data.id").value(caseId.toString()))
+                .andExpect(jsonPath("$.data.name").value("Gaming Ultra 2026"))
+                .andExpect(jsonPath("$.data.use_case").value("gaming"))
+                .andExpect(jsonPath("$.data.total_price").value(35000000.00))
+                .andExpect(jsonPath("$.data.is_active").value(true));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void updatePcCase_AsRegularUser_Returns403Forbidden() throws Exception {
+        UUID caseId = UUID.randomUUID();
+        UpdatePcCaseRequest request = UpdatePcCaseRequest.builder()
+                .name("Gaming Ultra 2026")
+                .build();
+
+        mockMvc.perform(put("/api/admin/pc-cases/{id}", caseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void updatePcCase_Unauthenticated_Returns401Unauthorized() throws Exception {
+        UUID caseId = UUID.randomUUID();
+        UpdatePcCaseRequest request = UpdatePcCaseRequest.builder()
+                .name("Gaming Ultra 2026")
+                .build();
+
+        mockMvc.perform(put("/api/admin/pc-cases/{id}", caseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void updatePcCase_NotFound_Returns404NotFound() throws Exception {
+        UUID nonExistentId = UUID.randomUUID();
+        UpdatePcCaseRequest request = UpdatePcCaseRequest.builder()
+                .name("Non-existent PC")
+                .build();
+
+        when(pcCaseService.updatePcCase(eq(nonExistentId), any(UpdatePcCaseRequest.class)))
+                .thenThrow(new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + nonExistentId));
+
+        mockMvc.perform(put("/api/admin/pc-cases/{id}", nonExistentId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy cấu hình PC với ID: " + nonExistentId));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void updatePcCase_MissingName_Returns400BadRequest() throws Exception {
+        UUID caseId = UUID.randomUUID();
+        UpdatePcCaseRequest request = UpdatePcCaseRequest.builder()
+                .useCase("gaming")
+                .build();
+
+        mockMvc.perform(put("/api/admin/pc-cases/{id}", caseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.name").value("Tên cấu hình PC không được để trống"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void updatePcCase_IncompatibleComponents_Returns400WithViolations() throws Exception {
+        UUID caseId = UUID.randomUUID();
+        UpdatePcCaseRequest request = UpdatePcCaseRequest.builder()
+                .name("Gaming Incompatible")
+                .items(List.of(
+                        PcCaseItemRequest.builder().category(ProductCategory.CPU).productId(UUID.randomUUID()).build()
+                ))
+                .build();
+
+        CompatibilityResult failedResult = CompatibilityResult.fail(List.of(
+                "Socket của CPU (AM5) không tương thích với socket của Mainboard (LGA1700)"
+        ));
+
+        when(pcCaseService.updatePcCase(eq(caseId), any(UpdatePcCaseRequest.class)))
+                .thenThrow(new BadRequestException(
+                        "Cấu hình PC không tương thích: Socket của CPU (AM5) không tương thích với socket của Mainboard (LGA1700)",
+                        failedResult
+                ));
+
+        mockMvc.perform(put("/api/admin/pc-cases/{id}", caseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.compatible").value(false))
+                .andExpect(jsonPath("$.data.violations[0]").value("Socket của CPU (AM5) không tương thích với socket của Mainboard (LGA1700)"));
     }
 }
