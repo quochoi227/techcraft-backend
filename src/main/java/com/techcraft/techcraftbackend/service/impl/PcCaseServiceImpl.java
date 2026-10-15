@@ -1,10 +1,12 @@
 package com.techcraft.techcraftbackend.service.impl;
 
 import com.techcraft.techcraftbackend.dto.request.CreatePcCaseRequest;
+import com.techcraft.techcraftbackend.dto.request.PcCaseFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.PcCaseItemRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.ValidatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CompatibilityResult;
+import com.techcraft.techcraftbackend.dto.response.PageResponse;
 import com.techcraft.techcraftbackend.dto.response.PcCaseResponse;
 import com.techcraft.techcraftbackend.entity.PcCase;
 import com.techcraft.techcraftbackend.entity.PcCaseItem;
@@ -17,8 +19,16 @@ import com.techcraft.techcraftbackend.mapper.PcCaseMapper;
 import com.techcraft.techcraftbackend.repository.PcCaseRepository;
 import com.techcraft.techcraftbackend.service.CompatibilityChecker;
 import com.techcraft.techcraftbackend.service.PcCaseService;
+import com.techcraft.techcraftbackend.specification.PcCaseSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -186,5 +196,105 @@ public class PcCaseServiceImpl implements PcCaseService {
     @Transactional(readOnly = true)
     public CompatibilityResult validatePcCase(ValidatePcCaseRequest request) {
         return compatibilityChecker.check(request);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<PcCaseResponse> getPcCases(PcCaseFilterRequest filter) {
+        if (filter == null) {
+            filter = new PcCaseFilterRequest();
+        }
+        validateFilter(filter);
+
+        Boolean effectiveIsActive = resolveEffectiveIsActive(filter.getIsActive());
+
+        Specification<PcCase> spec = PcCaseSpecification.filter(
+                filter.getEffectiveSearch(),
+                filter.getUseCase(),
+                filter.getMinPrice(),
+                filter.getMaxPrice(),
+                effectiveIsActive
+        );
+
+        Pageable pageable = createPageable(filter);
+        Page<PcCase> pcCasePage = pcCaseRepository.findAll(spec, pageable);
+
+        return PageResponse.from(pcCasePage, pcCaseMapper::toResponse);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PcCaseResponse getPcCaseById(UUID id) {
+        PcCase pcCase = pcCaseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + id));
+
+        if (!pcCase.isActive() && !isAdmin()) {
+            throw new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + id);
+        }
+
+        return pcCaseMapper.toResponse(pcCase);
+    }
+
+    private Boolean resolveEffectiveIsActive(Boolean requestedIsActive) {
+        if (isAdmin()) {
+            return requestedIsActive;
+        }
+        return true;
+    }
+
+    private boolean isAdmin() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            return false;
+        }
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
+    }
+
+    private void validateFilter(PcCaseFilterRequest filter) {
+        if (filter.getMinPrice() != null && filter.getMinPrice().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BadRequestException("Giá tối thiểu (minPrice) không được nhỏ hơn 0");
+        }
+        if (filter.getMaxPrice() != null && filter.getMaxPrice().compareTo(BigDecimal.ZERO) < 0) {
+            throw new BadRequestException("Giá tối đa (maxPrice) không được nhỏ hơn 0");
+        }
+        if (filter.getMinPrice() != null && filter.getMaxPrice() != null && filter.getMinPrice().compareTo(filter.getMaxPrice()) > 0) {
+            throw new BadRequestException("Giá tối thiểu (minPrice) không được lớn hơn giá tối đa (maxPrice)");
+        }
+        if (filter.getPage() < 0) {
+            throw new BadRequestException("Số trang (page) phải lớn hơn hoặc bằng 0");
+        }
+        if (filter.getSize() < 1 || filter.getSize() > 100) {
+            throw new BadRequestException("Kích thước trang (size) phải từ 1 đến 100");
+        }
+        if (StringUtils.hasText(filter.getSortDir())
+                && !filter.getSortDir().equalsIgnoreCase("asc")
+                && !filter.getSortDir().equalsIgnoreCase("desc")) {
+            throw new BadRequestException("Chiều sắp xếp (sortDir) không hợp lệ: '" + filter.getSortDir() + "'. Chỉ chấp nhận 'asc' hoặc 'desc'");
+        }
+    }
+
+    private Pageable createPageable(PcCaseFilterRequest filter) {
+        String sortBy = resolveSortProperty(filter.getSortBy());
+        Sort.Direction direction = "asc".equalsIgnoreCase(filter.getSortDir())
+                ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
+
+        return PageRequest.of(filter.getPage(), filter.getSize(), Sort.by(direction, sortBy));
+    }
+
+    private String resolveSortProperty(String sortBy) {
+        if (!StringUtils.hasText(sortBy)) {
+            return "createdAt";
+        }
+        return switch (sortBy.trim()) {
+            case "createdAt", "created_at" -> "createdAt";
+            case "totalPrice", "total_price", "price" -> "totalPrice";
+            case "name" -> "name";
+            case "updatedAt", "updated_at" -> "updatedAt";
+            default -> throw new BadRequestException(
+                    "Trường sắp xếp không hợp lệ: '" + sortBy + "'. Các trường hợp lệ: createdAt, totalPrice, name, updatedAt"
+            );
+        };
     }
 }

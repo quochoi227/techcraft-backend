@@ -2,9 +2,11 @@ package com.techcraft.techcraftbackend.controller;
 
 import com.techcraft.techcraftbackend.dto.ApiResponse;
 import com.techcraft.techcraftbackend.dto.request.CreatePcCaseRequest;
+import com.techcraft.techcraftbackend.dto.request.PcCaseFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.ValidatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CompatibilityResult;
+import com.techcraft.techcraftbackend.dto.response.PageResponse;
 import com.techcraft.techcraftbackend.dto.response.PcCaseResponse;
 import com.techcraft.techcraftbackend.service.PcCaseService;
 import jakarta.validation.Valid;
@@ -22,6 +24,27 @@ import java.util.UUID;
 public class PcCaseController {
 
     private final PcCaseService pcCaseService;
+
+    @GetMapping("/pc-cases")
+    public ResponseEntity<ApiResponse<PageResponse<PcCaseResponse>>> getPcCases(
+            @Valid @ModelAttribute PcCaseFilterRequest filter) {
+        PageResponse<PcCaseResponse> response = pcCaseService.getPcCases(filter);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách cấu hình PC thành công!", response));
+    }
+
+    @GetMapping("/admin/pc-cases")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<PageResponse<PcCaseResponse>>> getAdminPcCases(
+            @Valid @ModelAttribute PcCaseFilterRequest filter) {
+        PageResponse<PcCaseResponse> response = pcCaseService.getPcCases(filter);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách cấu hình PC thành công!", response));
+    }
+
+    @GetMapping({"/pc-cases/{id}", "/admin/pc-cases/{id}"})
+    public ResponseEntity<ApiResponse<PcCaseResponse>> getPcCaseById(@PathVariable UUID id) {
+        PcCaseResponse response = pcCaseService.getPcCaseById(id);
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết cấu hình PC thành công!", response));
+    }
 
     @PostMapping({"/admin/pc-cases", "/pc-cases"})
     @PreAuthorize("hasRole('ADMIN')")
