@@ -2,8 +2,10 @@ package com.techcraft.techcraftbackend.service;
 
 import com.techcraft.techcraftbackend.dto.request.CreatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.PcCaseItemRequest;
+import com.techcraft.techcraftbackend.dto.request.PcCaseFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdatePcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CompatibilityResult;
+import com.techcraft.techcraftbackend.dto.response.PageResponse;
 import com.techcraft.techcraftbackend.dto.response.PcCaseResponse;
 import com.techcraft.techcraftbackend.entity.PcCase;
 import com.techcraft.techcraftbackend.entity.PcCaseItem;
@@ -14,6 +16,7 @@ import com.techcraft.techcraftbackend.exception.DuplicateResourceException;
 import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
 import com.techcraft.techcraftbackend.mapper.PcCaseMapper;
 import com.techcraft.techcraftbackend.repository.PcCaseRepository;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -22,6 +25,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import com.techcraft.techcraftbackend.service.impl.PcCaseServiceImpl;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.math.BigDecimal;
 import java.util.*;
@@ -70,6 +83,11 @@ class PcCaseServiceTest {
                     .productId(id)
                     .build());
         }
+    }
+
+    @AfterEach
+    void tearDown() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -376,5 +394,262 @@ class PcCaseServiceTest {
         CompatibilityResult result = (CompatibilityResult) ex.getData();
         assertFalse(result.isCompatible());
         verify(pcCaseRepository, never()).save(any());
+    }
+
+    @Test
+    void getPcCases_AsGuest_ForcesIsActiveTrue_Success() {
+        PcCase pcCase = PcCase.builder()
+                .id(UUID.randomUUID())
+                .name("Gaming Entry")
+                .useCase("gaming")
+                .totalPrice(new BigDecimal("15000000.00"))
+                .isActive(true)
+                .items(new ArrayList<>())
+                .build();
+
+        PcCaseResponse response = PcCaseResponse.builder()
+                .id(pcCase.getId())
+                .name(pcCase.getName())
+                .useCase(pcCase.getUseCase())
+                .totalPrice(pcCase.getTotalPrice())
+                .isActive(true)
+                .build();
+
+        Page<PcCase> page = new PageImpl<>(List.of(pcCase));
+        when(pcCaseRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(page);
+        when(pcCaseMapper.toResponse(pcCase)).thenReturn(response);
+
+        PcCaseFilterRequest filter = PcCaseFilterRequest.builder()
+                .isActive(false) // Guest tries to request inactive, should be ignored/forced to true
+                .build();
+
+        PageResponse<PcCaseResponse> result = pcCaseService.getPcCases(filter);
+
+        assertNotNull(result);
+        assertEquals(1, result.getTotalElements());
+        assertEquals("Gaming Entry", result.getContent().get(0).getName());
+        verify(pcCaseRepository).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getPcCases_AsAdmin_AllowsQueryingInactive_Success() {
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "admin@techcraft.com", "password", List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+        );
+        context.setAuthentication(auth);
+        SecurityContextHolder.setContext(context);
+
+        Page<PcCase> emptyPage = new PageImpl<>(List.of());
+        when(pcCaseRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(emptyPage);
+
+        PcCaseFilterRequest filter = PcCaseFilterRequest.builder()
+                .isActive(false)
+                .build();
+
+        PageResponse<PcCaseResponse> result = pcCaseService.getPcCases(filter);
+
+        assertNotNull(result);
+        assertEquals(0, result.getTotalElements());
+        verify(pcCaseRepository).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getPcCases_WithFiltersAndPagination_Success() {
+        Page<PcCase> emptyPage = new PageImpl<>(List.of());
+        when(pcCaseRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(emptyPage);
+
+        PcCaseFilterRequest filter = PcCaseFilterRequest.builder()
+                .keyword("gaming")
+                .useCase("gaming")
+                .minPrice(new BigDecimal("10000000"))
+                .maxPrice(new BigDecimal("20000000"))
+                .page(1)
+                .size(5)
+                .sortBy("price")
+                .sortDir("desc")
+                .build();
+
+        PageResponse<PcCaseResponse> result = pcCaseService.getPcCases(filter);
+
+        assertNotNull(result);
+        ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
+        verify(pcCaseRepository).findAll(any(Specification.class), pageableCaptor.capture());
+
+        Pageable capturedPageable = pageableCaptor.getValue();
+        assertEquals(1, capturedPageable.getPageNumber());
+        assertEquals(5, capturedPageable.getPageSize());
+        assertNotNull(capturedPageable.getSort().getOrderFor("totalPrice"));
+        assertEquals(Sort.Direction.DESC, capturedPageable.getSort().getOrderFor("totalPrice").getDirection());
+    }
+
+    @Test
+    void getPcCases_MinPriceGreaterThanMaxPrice_ThrowsBadRequestException() {
+        PcCaseFilterRequest filter = PcCaseFilterRequest.builder()
+                .minPrice(new BigDecimal("20000000"))
+                .maxPrice(new BigDecimal("10000000"))
+                .build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                pcCaseService.getPcCases(filter)
+        );
+
+        assertTrue(ex.getMessage().contains("Giá tối thiểu (minPrice) không được lớn hơn"));
+        verify(pcCaseRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getPcCases_NegativeMinPrice_ThrowsBadRequestException() {
+        PcCaseFilterRequest filter = PcCaseFilterRequest.builder()
+                .minPrice(new BigDecimal("-1000"))
+                .build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                pcCaseService.getPcCases(filter)
+        );
+
+        assertTrue(ex.getMessage().contains("không được nhỏ hơn 0"));
+        verify(pcCaseRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getPcCases_NegativeMaxPrice_ThrowsBadRequestException() {
+        PcCaseFilterRequest filter = PcCaseFilterRequest.builder()
+                .maxPrice(new BigDecimal("-500"))
+                .build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                pcCaseService.getPcCases(filter)
+        );
+
+        assertTrue(ex.getMessage().contains("không được nhỏ hơn 0"));
+        verify(pcCaseRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getPcCases_InvalidSortField_ThrowsBadRequestException() {
+        PcCaseFilterRequest filter = PcCaseFilterRequest.builder()
+                .sortBy("invalidField")
+                .build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                pcCaseService.getPcCases(filter)
+        );
+
+        assertTrue(ex.getMessage().contains("Trường sắp xếp không hợp lệ"));
+        verify(pcCaseRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getPcCases_InvalidSortDir_ThrowsBadRequestException() {
+        PcCaseFilterRequest filter = PcCaseFilterRequest.builder()
+                .sortDir("randomDirection")
+                .build();
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                pcCaseService.getPcCases(filter)
+        );
+
+        assertTrue(ex.getMessage().contains("Chiều sắp xếp (sortDir) không hợp lệ"));
+        verify(pcCaseRepository, never()).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    void getPcCaseById_ActiveCase_AsGuest_ReturnsResponse() {
+        UUID id = UUID.randomUUID();
+        PcCase pcCase = PcCase.builder()
+                .id(id)
+                .name("Super Gaming PC")
+                .useCase("gaming")
+                .totalPrice(new BigDecimal("35000000.00"))
+                .isActive(true)
+                .items(new ArrayList<>())
+                .build();
+
+        PcCaseResponse response = PcCaseResponse.builder()
+                .id(id)
+                .name(pcCase.getName())
+                .useCase(pcCase.getUseCase())
+                .totalPrice(pcCase.getTotalPrice())
+                .isActive(true)
+                .build();
+
+        when(pcCaseRepository.findById(id)).thenReturn(Optional.of(pcCase));
+        when(pcCaseMapper.toResponse(pcCase)).thenReturn(response);
+
+        PcCaseResponse result = pcCaseService.getPcCaseById(id);
+
+        assertNotNull(result);
+        assertEquals(id, result.getId());
+        assertEquals("Super Gaming PC", result.getName());
+        verify(pcCaseRepository).findById(id);
+    }
+
+    @Test
+    void getPcCaseById_NotFound_ThrowsResourceNotFoundException() {
+        UUID id = UUID.randomUUID();
+        when(pcCaseRepository.findById(id)).thenReturn(Optional.empty());
+
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class, () ->
+                pcCaseService.getPcCaseById(id)
+        );
+
+        assertTrue(ex.getMessage().contains("Không tìm thấy cấu hình PC"));
+        verify(pcCaseRepository).findById(id);
+    }
+
+    @Test
+    void getPcCaseById_InactiveCase_AsGuest_ThrowsResourceNotFoundException() {
+        UUID id = UUID.randomUUID();
+        PcCase pcCase = PcCase.builder()
+                .id(id)
+                .name("Hidden PC")
+                .isActive(false)
+                .items(new ArrayList<>())
+                .build();
+
+        when(pcCaseRepository.findById(id)).thenReturn(Optional.of(pcCase));
+
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class, () ->
+                pcCaseService.getPcCaseById(id)
+        );
+
+        assertTrue(ex.getMessage().contains("Không tìm thấy cấu hình PC"));
+        verify(pcCaseMapper, never()).toResponse(any());
+    }
+
+    @Test
+    void getPcCaseById_InactiveCase_AsAdmin_Success() {
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
+        Authentication auth = new UsernamePasswordAuthenticationToken(
+                "admin@techcraft.com", "password", List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+        );
+        context.setAuthentication(auth);
+        SecurityContextHolder.setContext(context);
+
+        UUID id = UUID.randomUUID();
+        PcCase pcCase = PcCase.builder()
+                .id(id)
+                .name("Hidden PC")
+                .isActive(false)
+                .items(new ArrayList<>())
+                .build();
+
+        PcCaseResponse response = PcCaseResponse.builder()
+                .id(id)
+                .name("Hidden PC")
+                .isActive(false)
+                .build();
+
+        when(pcCaseRepository.findById(id)).thenReturn(Optional.of(pcCase));
+        when(pcCaseMapper.toResponse(pcCase)).thenReturn(response);
+
+        PcCaseResponse result = pcCaseService.getPcCaseById(id);
+
+        assertNotNull(result);
+        assertEquals(id, result.getId());
+        assertEquals("Hidden PC", result.getName());
+        assertFalse(result.isActive());
+        verify(pcCaseRepository).findById(id);
     }
 }
