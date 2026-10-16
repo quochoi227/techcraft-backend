@@ -652,4 +652,35 @@ class PcCaseServiceTest {
         assertFalse(result.isActive());
         verify(pcCaseRepository).findById(id);
     }
+
+    @Test
+    void deletePcCase_Success_SoftDeletesPcCase() {
+        UUID id = UUID.randomUUID();
+        PcCase existingPcCase = PcCase.builder()
+                .id(id)
+                .name("Gaming Case 2025")
+                .isActive(true)
+                .build();
+
+        when(pcCaseRepository.findById(id)).thenReturn(Optional.of(existingPcCase));
+        when(pcCaseRepository.save(any(PcCase.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertDoesNotThrow(() -> pcCaseService.deletePcCase(id));
+
+        assertFalse(existingPcCase.isActive());
+        verify(pcCaseRepository).save(argThat(c -> c.getId().equals(id) && !c.isActive()));
+    }
+
+    @Test
+    void deletePcCase_NotFound_ThrowsResourceNotFoundException() {
+        UUID id = UUID.randomUUID();
+        when(pcCaseRepository.findById(id)).thenReturn(Optional.empty());
+
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class, () ->
+                pcCaseService.deletePcCase(id)
+        );
+
+        assertTrue(ex.getMessage().contains("Không tìm thấy cấu hình PC với ID: " + id));
+        verify(pcCaseRepository, never()).save(any());
+    }
 }

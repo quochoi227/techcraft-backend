@@ -235,6 +235,17 @@ public class PcCaseServiceImpl implements PcCaseService {
         return pcCaseMapper.toResponse(pcCase);
     }
 
+    @Override
+    @Transactional
+    public void deletePcCase(UUID id) {
+        PcCase pcCase = pcCaseRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + id));
+
+        pcCase.setActive(false);
+        pcCaseRepository.save(pcCase);
+        log.info("Soft-deleted PC Case successfully with id: {}, name: {}", pcCase.getId(), pcCase.getName());
+    }
+
     private Boolean resolveEffectiveIsActive(Boolean requestedIsActive) {
         if (isAdmin()) {
             return requestedIsActive;

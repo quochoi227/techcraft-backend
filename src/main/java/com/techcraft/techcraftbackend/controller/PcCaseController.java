@@ -75,4 +75,11 @@ public class PcCaseController {
         PcCaseResponse response = pcCaseService.updatePcCase(id, request);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật cấu hình PC thành công!", response));
     }
+
+    @DeleteMapping({"/admin/pc-cases/{id}", "/pc-cases/{id}"})
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<Void>> deletePcCase(@PathVariable UUID id) {
+        pcCaseService.deletePcCase(id);
+        return ResponseEntity.ok(ApiResponse.success("Xoá cấu hình PC thành công!", null));
+    }
 }
