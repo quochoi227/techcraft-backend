@@ -21,4 +21,6 @@ public interface PcCaseService {
     PcCaseResponse getPcCaseById(UUID id);
 
     CompatibilityResult validatePcCase(ValidatePcCaseRequest request);
+
+    void deletePcCase(UUID id);
 }

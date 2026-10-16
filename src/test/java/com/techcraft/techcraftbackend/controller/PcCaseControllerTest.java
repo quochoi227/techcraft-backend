@@ -28,7 +28,10 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -443,5 +446,59 @@ class PcCaseControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("Không tìm thấy cấu hình PC với ID: " + nonExistentId));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void deletePcCase_AsAdmin_Returns200Ok() throws Exception {
+        UUID id = UUID.randomUUID();
+        doNothing().when(pcCaseService).deletePcCase(id);
+
+        mockMvc.perform(delete("/api/admin/pc-cases/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Xoá cấu hình PC thành công!"));
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void deletePcCase_ViaPublicPath_AsAdmin_Returns200Ok() throws Exception {
+        UUID id = UUID.randomUUID();
+        doNothing().when(pcCaseService).deletePcCase(id);
+
+        mockMvc.perform(delete("/api/pc-cases/{id}", id))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Xoá cấu hình PC thành công!"));
+    }
+
+    @Test
+    @WithMockUser(roles = "USER")
+    void deletePcCase_AsRegularUser_Returns403Forbidden() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/admin/pc-cases/{id}", id))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void deletePcCase_Unauthenticated_Returns401Unauthorized() throws Exception {
+        UUID id = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/admin/pc-cases/{id}", id))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(roles = "ADMIN")
+    void deletePcCase_NotFound_Returns404NotFound() throws Exception {
+        UUID id = UUID.randomUUID();
+        doThrow(new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + id))
+                .when(pcCaseService).deletePcCase(id);
+
+        mockMvc.perform(delete("/api/admin/pc-cases/{id}", id))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy cấu hình PC với ID: " + id));
     }
 }
