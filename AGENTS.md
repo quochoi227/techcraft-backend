@@ -461,6 +461,15 @@ Gemini trả về: Giải thích + gợi ý 1–3 PC Case phù hợp nhất
 | PUT | `/api/products/{id}` | Cập nhật sản phẩm | Admin |
 | DELETE | `/api/products/{id}` | Xoá sản phẩm (soft delete) | Admin |
 
+### Images / Cloudinary
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| POST | `/api/images/upload` | Upload 1 hình ảnh lên Cloudinary (`multipart/form-data`, hỗ trợ param `folder`) | Admin |
+| POST | `/api/images/upload-multiple` | Upload danh sách nhiều hình ảnh (tối đa 10 ảnh/lần) | Admin |
+| DELETE | `/api/images?publicId={publicId}` | Xoá hình ảnh khỏi Cloudinary qua query param | Admin |
+| DELETE | `/api/images/{publicId}` | Xoá hình ảnh khỏi Cloudinary qua path param | Admin |
+*(Hỗ trợ cả 2 tiền tố `/api/images` và `/api/admin/images`)*
+
 ### Orders
 | Method | Endpoint | Mô tả | Auth |
 |--------|----------|-------|------|
@@ -732,7 +741,7 @@ VITE_API_BASE_URL=http://localhost:8080/api
 - [ ] Implement RAG pipeline (embedding + vector search)
 - [ ] Implement Chatbot UI + API
 - [ ] Implement PC Config Suggestion (query DB + prompt Gemini)
-- [ ] Implement Image Upload (Cloudinary / S3)
+- [x] Implement Image Upload (Cloudinary / S3)
 - [ ] Implement Product Reviews (API + UI — đánh giá, chấm sao)
 - [ ] Implement Admin Statistics Dashboard (API + UI — doanh thu, đơn hàng, top sản phẩm, người dùng mới)
 - [ ] Viết tài liệu API (Swagger / OpenAPI)
