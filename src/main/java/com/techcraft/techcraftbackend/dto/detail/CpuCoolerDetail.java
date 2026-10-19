@@ -1,7 +1,5 @@
 package com.techcraft.techcraftbackend.dto.detail;
 
-import tools.jackson.databind.PropertyNamingStrategies;
-import tools.jackson.databind.annotation.JsonNaming;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -17,7 +15,6 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class CpuCoolerDetail {
 
     @NotBlank(message = "Loại tản nhiệt (type: Air, AIO Liquid...) không được để trống")
