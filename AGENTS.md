@@ -470,16 +470,6 @@ Gemini trả về: Giải thích + gợi ý 1–3 PC Case phù hợp nhất
 | DELETE | `/api/images/{publicId}` | Xoá hình ảnh khỏi Cloudinary qua path param | Admin |
 *(Hỗ trợ cả 2 tiền tố `/api/images` và `/api/admin/images`)*
 
-### Orders
-| Method | Endpoint | Mô tả | Auth |
-|--------|----------|-------|------|
-| GET | `/api/orders` | Lịch sử đơn hàng của user hiện tại | User |
-| GET | `/api/orders/{id}` | Chi tiết đơn hàng | User |
-| POST | `/api/orders` | Tạo đơn hàng mới | User |
-| PUT | `/api/orders/{id}/cancel` | Huỷ đơn hàng | User |
-| GET | `/api/admin/orders` | Tất cả đơn hàng | Admin |
-| PUT | `/api/admin/orders/{id}/status` | Cập nhật trạng thái đơn hàng | Admin |
-
 ### Cart
 | Method | Endpoint | Mô tả | Auth |
 |--------|----------|-------|------|
