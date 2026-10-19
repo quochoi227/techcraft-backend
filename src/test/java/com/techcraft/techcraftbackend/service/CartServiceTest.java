@@ -3,6 +3,7 @@ package com.techcraft.techcraftbackend.service;
 import com.techcraft.techcraftbackend.dto.request.AddCartItemRequest;
 import com.techcraft.techcraftbackend.dto.request.AddCartPcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CartItemResponse;
+import com.techcraft.techcraftbackend.dto.response.CartResponse;
 import com.techcraft.techcraftbackend.entity.CartItem;
 import com.techcraft.techcraftbackend.entity.PcCase;
 import com.techcraft.techcraftbackend.entity.PcCaseItem;
@@ -587,5 +588,108 @@ class CartServiceTest {
                 () -> cartService.addPcCaseToCart(userId, request));
         assertTrue(exception.getMessage().contains("vượt quá số lượng"));
         verify(cartItemRepository, never()).save(any());
+    }
+
+    // ==================== Tests cho xem giỏ hàng (getCart) ====================
+
+    @Test
+    @DisplayName("Lấy thông tin giỏ hàng thành công khi giỏ có linh kiện lẻ và cấu hình PC")
+    void getCart_Success_WhenCartNotEmpty() {
+        CartItem productItem = CartItem.builder()
+                .id(UUID.randomUUID())
+                .user(mockUser)
+                .product(mockProduct)
+                .quantity(2)
+                .build();
+
+        CartItem pcCaseItem = CartItem.builder()
+                .id(UUID.randomUUID())
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .quantity(1)
+                .build();
+
+        List<CartItem> cartItems = List.of(productItem, pcCaseItem);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByUserIdWithDetailsOrderByCreatedAtDesc(userId)).thenReturn(cartItems);
+
+        CartItemResponse productResponse = CartItemResponse.builder()
+                .id(productItem.getId())
+                .productId(mockProduct.getId())
+                .productName(mockProduct.getName())
+                .itemType("PRODUCT")
+                .unitPrice(mockProduct.getPrice())
+                .quantity(2)
+                .subtotal(BigDecimal.valueOf(11000000))
+                .build();
+
+        CartItemResponse pcCaseResponse = CartItemResponse.builder()
+                .id(pcCaseItem.getId())
+                .pcCaseId(mockPcCase.getId())
+                .pcCaseName(mockPcCase.getName())
+                .itemType("PC_CASE")
+                .unitPrice(mockPcCase.getTotalPrice())
+                .quantity(1)
+                .subtotal(BigDecimal.valueOf(13500000))
+                .build();
+
+        when(cartMapper.toResponse(productItem)).thenReturn(productResponse);
+        when(cartMapper.toResponse(pcCaseItem)).thenReturn(pcCaseResponse);
+
+        CartResponse cartResponse = cartService.getCart(userId);
+
+        assertNotNull(cartResponse);
+        assertEquals(2, cartResponse.getTotalItems());
+        assertEquals(3, cartResponse.getTotalQuantity()); // 2 + 1
+        assertEquals(BigDecimal.valueOf(24500000), cartResponse.getTotalAmount()); // 11000000 + 13500000
+        assertEquals(2, cartResponse.getItems().size());
+    }
+
+    @Test
+    @DisplayName("Lấy thông tin giỏ hàng thành công khi giỏ hàng trống")
+    void getCart_Success_WhenCartEmpty() {
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByUserIdWithDetailsOrderByCreatedAtDesc(userId)).thenReturn(List.of());
+
+        CartResponse cartResponse = cartService.getCart(userId);
+
+        assertNotNull(cartResponse);
+        assertEquals(0, cartResponse.getTotalItems());
+        assertEquals(0, cartResponse.getTotalQuantity());
+        assertEquals(BigDecimal.ZERO, cartResponse.getTotalAmount());
+        assertTrue(cartResponse.getItems().isEmpty());
+    }
+
+    @Test
+    @DisplayName("Lấy thông tin giỏ hàng theo email thành công")
+    void getCart_ByEmail_Success() {
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByUserIdWithDetailsOrderByCreatedAtDesc(userId)).thenReturn(List.of());
+
+        CartResponse cartResponse = cartService.getCart("user@example.com");
+
+        assertNotNull(cartResponse);
+        assertEquals(0, cartResponse.getTotalItems());
+        assertEquals(0, cartResponse.getTotalQuantity());
+        assertEquals(BigDecimal.ZERO, cartResponse.getTotalAmount());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy user theo userId khi lấy giỏ")
+    void getCart_ThrowsResourceNotFoundException_WhenUserNotFound() {
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> cartService.getCart(userId));
+        verify(cartItemRepository, never()).findByUserIdWithDetailsOrderByCreatedAtDesc(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy user theo email khi lấy giỏ")
+    void getCart_ByEmail_ThrowsResourceNotFoundException_WhenUserNotFound() {
+        when(userRepository.findByEmail("notfound@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> cartService.getCart("notfound@example.com"));
+        verify(cartItemRepository, never()).findByUserIdWithDetailsOrderByCreatedAtDesc(any());
     }
 }

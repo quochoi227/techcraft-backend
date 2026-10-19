@@ -3,6 +3,7 @@ package com.techcraft.techcraftbackend.controller;
 import com.techcraft.techcraftbackend.dto.request.AddCartItemRequest;
 import com.techcraft.techcraftbackend.dto.request.AddCartPcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CartItemResponse;
+import com.techcraft.techcraftbackend.dto.response.CartResponse;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
 import com.techcraft.techcraftbackend.exception.BadRequestException;
 import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
@@ -19,11 +20,13 @@ import org.springframework.test.web.servlet.MockMvc;
 import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -299,5 +302,79 @@ class CartControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("Cấu hình PC này hiện không đủ linh kiện trong kho để lắp ráp."));
+    }
+
+    // ==================== Tests cho GET /api/cart ====================
+
+    @Test
+    @DisplayName("Lấy thông tin giỏ hàng thành công khi đã đăng nhập (200 OK)")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void getCart_AsAuthenticatedUser_Returns200Ok() throws Exception {
+        UUID cartItemId1 = UUID.randomUUID();
+        UUID productId = UUID.randomUUID();
+        UUID cartItemId2 = UUID.randomUUID();
+        UUID pcCaseId = UUID.randomUUID();
+
+        CartItemResponse productItem = CartItemResponse.builder()
+                .id(cartItemId1)
+                .productId(productId)
+                .productName("CPU Intel Core i5-13400")
+                .itemType("PRODUCT")
+                .unitPrice(BigDecimal.valueOf(5500000))
+                .quantity(2)
+                .subtotal(BigDecimal.valueOf(11000000))
+                .build();
+
+        CartItemResponse pcCaseItem = CartItemResponse.builder()
+                .id(cartItemId2)
+                .pcCaseId(pcCaseId)
+                .pcCaseName("Gaming Ultra 2026")
+                .itemType("PC_CASE")
+                .unitPrice(BigDecimal.valueOf(25000000))
+                .quantity(1)
+                .subtotal(BigDecimal.valueOf(25000000))
+                .build();
+
+        CartResponse response = CartResponse.builder()
+                .items(List.of(productItem, pcCaseItem))
+                .totalItems(2)
+                .totalQuantity(3)
+                .totalAmount(BigDecimal.valueOf(36000000))
+                .build();
+
+        when(cartService.getCart("user@example.com")).thenReturn(response);
+
+        mockMvc.perform(get("/api/cart"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Lấy thông tin giỏ hàng thành công!"))
+                .andExpect(jsonPath("$.data.total_items").value(2))
+                .andExpect(jsonPath("$.data.total_quantity").value(3))
+                .andExpect(jsonPath("$.data.total_amount").value(36000000))
+                .andExpect(jsonPath("$.data.items[0].id").value(cartItemId1.toString()))
+                .andExpect(jsonPath("$.data.items[0].item_type").value("PRODUCT"))
+                .andExpect(jsonPath("$.data.items[1].id").value(cartItemId2.toString()))
+                .andExpect(jsonPath("$.data.items[1].item_type").value("PC_CASE"));
+    }
+
+    @Test
+    @DisplayName("Chưa đăng nhập khi lấy giỏ hàng -> Trả về 401 Unauthorized")
+    void getCart_Unauthenticated_Returns401Unauthorized() throws Exception {
+        mockMvc.perform(get("/api/cart"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("User không tồn tại khi lấy giỏ hàng -> Trả về 404 Not Found")
+    @WithMockUser(username = "notfound@example.com", roles = "USER")
+    void getCart_UserNotFound_Returns404NotFound() throws Exception {
+        when(cartService.getCart("notfound@example.com"))
+                .thenThrow(new ResourceNotFoundException("Không tìm thấy người dùng"));
+
+        mockMvc.perform(get("/api/cart"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy người dùng"));
     }
 }

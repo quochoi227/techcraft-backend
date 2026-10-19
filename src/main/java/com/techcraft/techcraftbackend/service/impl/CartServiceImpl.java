@@ -3,6 +3,7 @@ package com.techcraft.techcraftbackend.service.impl;
 import com.techcraft.techcraftbackend.dto.request.AddCartItemRequest;
 import com.techcraft.techcraftbackend.dto.request.AddCartPcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CartItemResponse;
+import com.techcraft.techcraftbackend.dto.response.CartResponse;
 import com.techcraft.techcraftbackend.entity.CartItem;
 import com.techcraft.techcraftbackend.entity.PcCase;
 import com.techcraft.techcraftbackend.entity.PcCaseItem;
@@ -20,7 +21,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -65,6 +68,48 @@ public class CartServiceImpl implements CartService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
 
         return addPcCaseToUserCart(user, request);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CartResponse getCart(UUID userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId));
+
+        return getUserCart(user);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CartResponse getCart(String email) {
+        User user = userRepository.findByEmail(email != null ? email.toLowerCase().trim() : null)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
+
+        return getUserCart(user);
+    }
+
+    private CartResponse getUserCart(User user) {
+        List<CartItem> cartItems = cartItemRepository.findByUserIdWithDetailsOrderByCreatedAtDesc(user.getId());
+
+        List<CartItemResponse> itemResponses = cartItems.stream()
+                .map(cartMapper::toResponse)
+                .toList();
+
+        int totalItems = itemResponses.size();
+        int totalQuantity = itemResponses.stream()
+                .mapToInt(item -> item.getQuantity() != null ? item.getQuantity() : 0)
+                .sum();
+        BigDecimal totalAmount = itemResponses.stream()
+                .map(CartItemResponse::getSubtotal)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return CartResponse.builder()
+                .items(itemResponses)
+                .totalItems(totalItems)
+                .totalQuantity(totalQuantity)
+                .totalAmount(totalAmount)
+                .build();
     }
 
     private CartItemResponse addProductToUserCart(User user, AddCartItemRequest request) {
