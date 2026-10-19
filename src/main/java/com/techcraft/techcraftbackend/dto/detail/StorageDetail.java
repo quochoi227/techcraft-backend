@@ -1,8 +1,6 @@
 package com.techcraft.techcraftbackend.dto.detail;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import tools.jackson.databind.PropertyNamingStrategies;
-import tools.jackson.databind.annotation.JsonNaming;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -15,7 +13,6 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class StorageDetail {
 
     @NotBlank(message = "Loại ổ cứng (type: NVMe SSD, SATA SSD, HDD...) không được để trống")

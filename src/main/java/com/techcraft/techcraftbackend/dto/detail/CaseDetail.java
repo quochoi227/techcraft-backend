@@ -1,7 +1,5 @@
 package com.techcraft.techcraftbackend.dto.detail;
 
-import tools.jackson.databind.PropertyNamingStrategies;
-import tools.jackson.databind.annotation.JsonNaming;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -16,7 +14,6 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
 public class CaseDetail {
 
     @NotEmpty(message = "Danh sách form factor mainboard hỗ trợ (form_factor_support) không được để trống")
