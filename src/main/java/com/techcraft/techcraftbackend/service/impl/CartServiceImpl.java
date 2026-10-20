@@ -2,6 +2,7 @@ package com.techcraft.techcraftbackend.service.impl;
 
 import com.techcraft.techcraftbackend.dto.request.AddCartItemRequest;
 import com.techcraft.techcraftbackend.dto.request.AddCartPcCaseRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateCartItemRequest;
 import com.techcraft.techcraftbackend.dto.response.CartItemResponse;
 import com.techcraft.techcraftbackend.dto.response.CartResponse;
 import com.techcraft.techcraftbackend.entity.CartItem;
@@ -52,6 +53,22 @@ public class CartServiceImpl implements CartService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
 
         return addProductToUserCart(user, request);
+    }
+
+    @Override
+    public CartItemResponse updateCartItemQuantity(UUID userId, UUID itemId, UpdateCartItemRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId));
+
+        return updateProductQuantityInCart(user, itemId, request);
+    }
+
+    @Override
+    public CartItemResponse updateCartItemQuantity(String email, UUID itemId, UpdateCartItemRequest request) {
+        User user = userRepository.findByEmail(email != null ? email.toLowerCase().trim() : null)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
+
+        return updateProductQuantityInCart(user, itemId, request);
     }
 
     @Override
@@ -157,6 +174,48 @@ public class CartServiceImpl implements CartService {
                     .quantity(requestedQuantity)
                     .build();
         }
+
+        CartItem savedItem = cartItemRepository.save(cartItem);
+        return cartMapper.toResponse(savedItem);
+    }
+
+    private CartItemResponse updateProductQuantityInCart(User user, UUID itemId, UpdateCartItemRequest request) {
+        if (request == null || request.getQuantity() == null || request.getQuantity() < 1) {
+            throw new BadRequestException("Số lượng linh kiện phải lớn hơn hoặc bằng 1.");
+        }
+
+        Optional<CartItem> cartItemOpt = cartItemRepository.findByIdAndUserId(itemId, user.getId());
+        if (cartItemOpt.isEmpty()) {
+            cartItemOpt = cartItemRepository.findByUserIdAndProductId(user.getId(), itemId);
+        }
+
+        CartItem cartItem = cartItemOpt.orElseThrow(() ->
+                new ResourceNotFoundException("Không tìm thấy linh kiện trong giỏ hàng với ID: " + itemId));
+
+        if (cartItem.getProduct() == null) {
+            throw new BadRequestException("Mục này trong giỏ hàng không phải là linh kiện lẻ.");
+        }
+
+        Product product = productRepository.findById(cartItem.getProduct().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy linh kiện với ID: " + cartItem.getProduct().getId()));
+
+        if (!product.isActive()) {
+            throw new BadRequestException("Linh kiện này hiện đang ngừng kinh doanh.");
+        }
+
+        int availableStock = product.getStockQuantity() != null ? product.getStockQuantity() : 0;
+        if (availableStock <= 0) {
+            throw new BadRequestException("Linh kiện đã hết hàng.");
+        }
+
+        if (request.getQuantity() > availableStock) {
+            throw new BadRequestException(String.format(
+                    "Số lượng yêu cầu (%d) vượt quá số lượng tồn kho hiện có (%d).",
+                    request.getQuantity(), availableStock
+            ));
+        }
+
+        cartItem.setQuantity(request.getQuantity());
 
         CartItem savedItem = cartItemRepository.save(cartItem);
         return cartMapper.toResponse(savedItem);

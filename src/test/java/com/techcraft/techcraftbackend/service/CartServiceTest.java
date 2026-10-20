@@ -2,6 +2,7 @@ package com.techcraft.techcraftbackend.service;
 
 import com.techcraft.techcraftbackend.dto.request.AddCartItemRequest;
 import com.techcraft.techcraftbackend.dto.request.AddCartPcCaseRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateCartItemRequest;
 import com.techcraft.techcraftbackend.dto.response.CartItemResponse;
 import com.techcraft.techcraftbackend.dto.response.CartResponse;
 import com.techcraft.techcraftbackend.entity.CartItem;
@@ -344,6 +345,299 @@ class CartServiceTest {
         BadRequestException exception = assertThrows(BadRequestException.class,
                 () -> cartService.addCartItem(userId, request));
         assertTrue(exception.getMessage().contains("vượt quá số lượng tồn kho"));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    // ==================== Tests cho cập nhật số lượng linh kiện (updateCartItemQuantity) ====================
+
+    @Test
+    @DisplayName("Cập nhật số lượng linh kiện thành công khi tìm thấy theo cartItemId")
+    void updateCartItemQuantity_Success_WhenFoundById() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(3)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .product(mockProduct)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(mockProduct));
+        when(cartItemRepository.save(existingCartItem)).thenReturn(existingCartItem);
+
+        CartItemResponse expectedResponse = CartItemResponse.builder()
+                .id(cartItemId)
+                .productId(productId)
+                .productName(mockProduct.getName())
+                .quantity(3)
+                .subtotal(BigDecimal.valueOf(16500000))
+                .build();
+
+        when(cartMapper.toResponse(existingCartItem)).thenReturn(expectedResponse);
+
+        CartItemResponse actualResponse = cartService.updateCartItemQuantity(userId, cartItemId, request);
+
+        assertNotNull(actualResponse);
+        assertEquals(3, actualResponse.getQuantity());
+        assertEquals(3, existingCartItem.getQuantity());
+        verify(cartItemRepository).save(existingCartItem);
+    }
+
+    @Test
+    @DisplayName("Cập nhật số lượng linh kiện thành công khi tìm fallback theo productId")
+    void updateCartItemQuantity_Success_WhenFoundByProductIdFallback() {
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(4)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(UUID.randomUUID())
+                .user(mockUser)
+                .product(mockProduct)
+                .quantity(2)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(productId, userId)).thenReturn(Optional.empty());
+        when(cartItemRepository.findByUserIdAndProductId(userId, productId)).thenReturn(Optional.of(existingCartItem));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(mockProduct));
+        when(cartItemRepository.save(existingCartItem)).thenReturn(existingCartItem);
+
+        CartItemResponse expectedResponse = CartItemResponse.builder()
+                .id(existingCartItem.getId())
+                .productId(productId)
+                .productName(mockProduct.getName())
+                .quantity(4)
+                .build();
+
+        when(cartMapper.toResponse(existingCartItem)).thenReturn(expectedResponse);
+
+        CartItemResponse actualResponse = cartService.updateCartItemQuantity(userId, productId, request);
+
+        assertNotNull(actualResponse);
+        assertEquals(4, actualResponse.getQuantity());
+        assertEquals(4, existingCartItem.getQuantity());
+        verify(cartItemRepository).save(existingCartItem);
+    }
+
+    @Test
+    @DisplayName("Cập nhật số lượng linh kiện theo email thành công")
+    void updateCartItemQuantity_Success_ByEmail() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .product(mockProduct)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(mockProduct));
+        when(cartItemRepository.save(existingCartItem)).thenReturn(existingCartItem);
+
+        CartItemResponse expectedResponse = CartItemResponse.builder()
+                .id(cartItemId)
+                .quantity(2)
+                .build();
+
+        when(cartMapper.toResponse(existingCartItem)).thenReturn(expectedResponse);
+
+        CartItemResponse actualResponse = cartService.updateCartItemQuantity("user@example.com", cartItemId, request);
+
+        assertNotNull(actualResponse);
+        assertEquals(2, actualResponse.getQuantity());
+        verify(cartItemRepository).save(existingCartItem);
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy user khi cập nhật")
+    void updateCartItemQuantity_ThrowsResourceNotFoundException_WhenUserNotFound() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(2)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                cartService.updateCartItemQuantity(userId, cartItemId, request));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy linh kiện trong giỏ hàng")
+    void updateCartItemQuantity_ThrowsResourceNotFoundException_WhenCartItemNotFound() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(2)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.empty());
+        when(cartItemRepository.findByUserIdAndProductId(userId, cartItemId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                cartService.updateCartItemQuantity(userId, cartItemId, request));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi mục trong giỏ là PC Case chứ không phải linh kiện lẻ")
+    void updateCartItemQuantity_ThrowsBadRequestException_WhenCartItemIsPcCase() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItem pcCaseCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .product(null)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(pcCaseCartItem));
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+                cartService.updateCartItemQuantity(userId, cartItemId, request));
+        assertTrue(exception.getMessage().contains("không phải là linh kiện lẻ"));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy thông tin sản phẩm tương ứng")
+    void updateCartItemQuantity_ThrowsResourceNotFoundException_WhenProductNotFound() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .product(mockProduct)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(productRepository.findById(productId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                cartService.updateCartItemQuantity(userId, cartItemId, request));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi sản phẩm ngừng kinh doanh khi cập nhật")
+    void updateCartItemQuantity_ThrowsBadRequestException_WhenProductInactive() {
+        UUID cartItemId = UUID.randomUUID();
+        mockProduct.setActive(false);
+
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .product(mockProduct)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(mockProduct));
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+                cartService.updateCartItemQuantity(userId, cartItemId, request));
+        assertTrue(exception.getMessage().contains("ngừng kinh doanh"));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi sản phẩm đã hết hàng khi cập nhật")
+    void updateCartItemQuantity_ThrowsBadRequestException_WhenProductOutOfStock() {
+        UUID cartItemId = UUID.randomUUID();
+        mockProduct.setStockQuantity(0);
+
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .product(mockProduct)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(mockProduct));
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+                cartService.updateCartItemQuantity(userId, cartItemId, request));
+        assertTrue(exception.getMessage().contains("hết hàng"));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi số lượng yêu cầu vượt quá tồn kho")
+    void updateCartItemQuantity_ThrowsBadRequestException_WhenQuantityExceedsStock() {
+        UUID cartItemId = UUID.randomUUID();
+        mockProduct.setStockQuantity(5);
+
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(6)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .product(mockProduct)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(mockProduct));
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+                cartService.updateCartItemQuantity(userId, cartItemId, request));
+        assertTrue(exception.getMessage().contains("vượt quá số lượng tồn kho"));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi số lượng yêu cầu < 1 hoặc null")
+    void updateCartItemQuantity_ThrowsBadRequestException_WhenQuantityInvalid() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartItemRequest requestNull = UpdateCartItemRequest.builder()
+                .quantity(null)
+                .build();
+        UpdateCartItemRequest requestZero = UpdateCartItemRequest.builder()
+                .quantity(0)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+
+        assertThrows(BadRequestException.class, () ->
+                cartService.updateCartItemQuantity(userId, cartItemId, requestNull));
+        assertThrows(BadRequestException.class, () ->
+                cartService.updateCartItemQuantity(userId, cartItemId, requestZero));
         verify(cartItemRepository, never()).save(any());
     }
 
