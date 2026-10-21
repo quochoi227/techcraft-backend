@@ -2,6 +2,8 @@ package com.techcraft.techcraftbackend.controller;
 
 import com.techcraft.techcraftbackend.dto.request.AddCartItemRequest;
 import com.techcraft.techcraftbackend.dto.request.AddCartPcCaseRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateCartItemRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateCartPcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CartItemResponse;
 import com.techcraft.techcraftbackend.dto.response.CartResponse;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
@@ -28,6 +30,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -79,8 +82,8 @@ class CartControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Thêm linh kiện vào giỏ hàng thành công!"))
                 .andExpect(jsonPath("$.data.id").value(cartItemId.toString()))
-                .andExpect(jsonPath("$.data.product_id").value(productId.toString()))
-                .andExpect(jsonPath("$.data.product_name").value("CPU AMD Ryzen 5 7600X"))
+                .andExpect(jsonPath("$.data.productId").value(productId.toString()))
+                .andExpect(jsonPath("$.data.productName").value("CPU AMD Ryzen 5 7600X"))
                 .andExpect(jsonPath("$.data.quantity").value(2))
                 .andExpect(jsonPath("$.data.subtotal").value(12400000));
     }
@@ -174,6 +177,133 @@ class CartControllerTest {
                 .andExpect(jsonPath("$.message").value("Linh kiện đã hết hàng."));
     }
 
+    // ==================== Tests cho PUT /api/cart/items/{id} ====================
+
+    @Test
+    @DisplayName("Cập nhật số lượng linh kiện trong giỏ hàng thành công khi đã đăng nhập (200 OK)")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void updateCartItemQuantity_AsAuthenticatedUser_Returns200Ok() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+        UUID productId = UUID.randomUUID();
+
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(3)
+                .build();
+
+        CartItemResponse response = CartItemResponse.builder()
+                .id(cartItemId)
+                .productId(productId)
+                .productName("CPU AMD Ryzen 5 7600X")
+                .productPrice(BigDecimal.valueOf(6200000))
+                .category(ProductCategory.CPU)
+                .stockQuantity(15)
+                .quantity(3)
+                .subtotal(BigDecimal.valueOf(18600000))
+                .build();
+
+        when(cartService.updateCartItemQuantity(eq("user@example.com"), eq(cartItemId), any(UpdateCartItemRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(put("/api/cart/items/{id}", cartItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Cập nhật số lượng linh kiện trong giỏ hàng thành công!"))
+                .andExpect(jsonPath("$.data.id").value(cartItemId.toString()))
+                .andExpect(jsonPath("$.data.productId").value(productId.toString()))
+                .andExpect(jsonPath("$.data.productName").value("CPU AMD Ryzen 5 7600X"))
+                .andExpect(jsonPath("$.data.quantity").value(3))
+                .andExpect(jsonPath("$.data.subtotal").value(18600000));
+    }
+
+    @Test
+    @DisplayName("Chưa đăng nhập khi cập nhật số lượng linh kiện -> Trả về 401 Unauthorized")
+    void updateCartItemQuantity_Unauthenticated_Returns401Unauthorized() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(2)
+                .build();
+
+        mockMvc.perform(put("/api/cart/items/{id}", cartItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Thiếu quantity khi cập nhật -> Trả về 400 Bad Request kèm validation error")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void updateCartItemQuantity_MissingQuantity_Returns400BadRequest() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(null)
+                .build();
+
+        mockMvc.perform(put("/api/cart/items/{id}", cartItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Số lượng cập nhật < 1 -> Trả về 400 Bad Request kèm validation error")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void updateCartItemQuantity_QuantityLessThanOne_Returns400BadRequest() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(0)
+                .build();
+
+        mockMvc.perform(put("/api/cart/items/{id}", cartItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Service ném ResourceNotFoundException khi không tìm thấy linh kiện trong giỏ -> Trả về 404 Not Found")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void updateCartItemQuantity_CartItemNotFound_Returns404NotFound() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(2)
+                .build();
+
+        when(cartService.updateCartItemQuantity(eq("user@example.com"), eq(cartItemId), any(UpdateCartItemRequest.class)))
+                .thenThrow(new ResourceNotFoundException("Không tìm thấy linh kiện trong giỏ hàng với ID: " + cartItemId));
+
+        mockMvc.perform(put("/api/cart/items/{id}", cartItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy linh kiện trong giỏ hàng với ID: " + cartItemId));
+    }
+
+    @Test
+    @DisplayName("Service ném BadRequestException khi số lượng cập nhật vượt quá tồn kho -> Trả về 400 Bad Request")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void updateCartItemQuantity_StockExceeded_Returns400BadRequest() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartItemRequest request = UpdateCartItemRequest.builder()
+                .quantity(20)
+                .build();
+
+        when(cartService.updateCartItemQuantity(eq("user@example.com"), eq(cartItemId), any(UpdateCartItemRequest.class)))
+                .thenThrow(new BadRequestException("Số lượng yêu cầu (20) vượt quá số lượng tồn kho hiện có (15)."));
+
+        mockMvc.perform(put("/api/cart/items/{id}", cartItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Số lượng yêu cầu (20) vượt quá số lượng tồn kho hiện có (15)."));
+    }
+
     // ==================== Tests cho POST /api/cart/pc-cases ====================
 
     @Test
@@ -208,9 +338,9 @@ class CartControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Thêm cấu hình PC vào giỏ hàng thành công!"))
                 .andExpect(jsonPath("$.data.id").value(cartItemId.toString()))
-                .andExpect(jsonPath("$.data.pc_case_id").value(pcCaseId.toString()))
-                .andExpect(jsonPath("$.data.pc_case_name").value("Gaming Ultra 2026"))
-                .andExpect(jsonPath("$.data.item_type").value("PC_CASE"))
+                .andExpect(jsonPath("$.data.pcCaseId").value(pcCaseId.toString()))
+                .andExpect(jsonPath("$.data.pcCaseName").value("Gaming Ultra 2026"))
+                .andExpect(jsonPath("$.data.itemType").value("PC_CASE"))
                 .andExpect(jsonPath("$.data.quantity").value(1))
                 .andExpect(jsonPath("$.data.subtotal").value(25000000));
     }
@@ -304,6 +434,133 @@ class CartControllerTest {
                 .andExpect(jsonPath("$.message").value("Cấu hình PC này hiện không đủ linh kiện trong kho để lắp ráp."));
     }
 
+    // ==================== Tests cho PUT /api/cart/pc-cases/{id} ====================
+
+    @Test
+    @DisplayName("Cập nhật số lượng PC Case trong giỏ hàng thành công khi đã đăng nhập (200 OK)")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void updateCartPcCaseQuantity_AsAuthenticatedUser_Returns200Ok() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+        UUID pcCaseId = UUID.randomUUID();
+
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItemResponse response = CartItemResponse.builder()
+                .id(cartItemId)
+                .pcCaseId(pcCaseId)
+                .pcCaseName("Gaming Ultra 2026")
+                .itemType("PC_CASE")
+                .unitPrice(BigDecimal.valueOf(25000000))
+                .quantity(2)
+                .subtotal(BigDecimal.valueOf(50000000))
+                .build();
+
+        when(cartService.updateCartPcCaseQuantity(eq("user@example.com"), eq(cartItemId), any(UpdateCartPcCaseRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(put("/api/cart/pc-cases/{id}", cartItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Cập nhật số lượng cấu hình PC trong giỏ hàng thành công!"))
+                .andExpect(jsonPath("$.data.id").value(cartItemId.toString()))
+                .andExpect(jsonPath("$.data.pcCaseId").value(pcCaseId.toString()))
+                .andExpect(jsonPath("$.data.pcCaseName").value("Gaming Ultra 2026"))
+                .andExpect(jsonPath("$.data.itemType").value("PC_CASE"))
+                .andExpect(jsonPath("$.data.quantity").value(2))
+                .andExpect(jsonPath("$.data.subtotal").value(50000000));
+    }
+
+    @Test
+    @DisplayName("Chưa đăng nhập khi cập nhật số lượng PC Case -> Trả về 401 Unauthorized")
+    void updateCartPcCaseQuantity_Unauthenticated_Returns401Unauthorized() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(2)
+                .build();
+
+        mockMvc.perform(put("/api/cart/pc-cases/{id}", cartItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Thiếu quantity khi cập nhật PC Case -> Trả về 400 Bad Request kèm validation error")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void updateCartPcCaseQuantity_MissingQuantity_Returns400BadRequest() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(null)
+                .build();
+
+        mockMvc.perform(put("/api/cart/pc-cases/{id}", cartItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Số lượng cập nhật PC Case < 1 -> Trả về 400 Bad Request kèm validation error")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void updateCartPcCaseQuantity_QuantityLessThanOne_Returns400BadRequest() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(0)
+                .build();
+
+        mockMvc.perform(put("/api/cart/pc-cases/{id}", cartItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Service ném ResourceNotFoundException khi không tìm thấy PC Case trong giỏ -> Trả về 404 Not Found")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void updateCartPcCaseQuantity_CartItemNotFound_Returns404NotFound() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(2)
+                .build();
+
+        when(cartService.updateCartPcCaseQuantity(eq("user@example.com"), eq(cartItemId), any(UpdateCartPcCaseRequest.class)))
+                .thenThrow(new ResourceNotFoundException("Không tìm thấy cấu hình PC trong giỏ hàng với ID: " + cartItemId));
+
+        mockMvc.perform(put("/api/cart/pc-cases/{id}", cartItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy cấu hình PC trong giỏ hàng với ID: " + cartItemId));
+    }
+
+    @Test
+    @DisplayName("Service ném BadRequestException khi số lượng cập nhật PC Case vượt quá khả năng lắp ráp -> Trả về 400 Bad Request")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void updateCartPcCaseQuantity_StockExceeded_Returns400BadRequest() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(10)
+                .build();
+
+        when(cartService.updateCartPcCaseQuantity(eq("user@example.com"), eq(cartItemId), any(UpdateCartPcCaseRequest.class)))
+                .thenThrow(new BadRequestException("Số lượng yêu cầu (10) vượt quá số lượng tối đa có thể lắp ráp hiện tại (4)."));
+
+        mockMvc.perform(put("/api/cart/pc-cases/{id}", cartItemId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Số lượng yêu cầu (10) vượt quá số lượng tối đa có thể lắp ráp hiện tại (4)."));
+    }
+
     // ==================== Tests cho GET /api/cart ====================
 
     @Test
@@ -348,13 +605,13 @@ class CartControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Lấy thông tin giỏ hàng thành công!"))
-                .andExpect(jsonPath("$.data.total_items").value(2))
-                .andExpect(jsonPath("$.data.total_quantity").value(3))
-                .andExpect(jsonPath("$.data.total_amount").value(36000000))
+                .andExpect(jsonPath("$.data.totalItems").value(2))
+                .andExpect(jsonPath("$.data.totalQuantity").value(3))
+                .andExpect(jsonPath("$.data.totalAmount").value(36000000))
                 .andExpect(jsonPath("$.data.items[0].id").value(cartItemId1.toString()))
-                .andExpect(jsonPath("$.data.items[0].item_type").value("PRODUCT"))
+                .andExpect(jsonPath("$.data.items[0].itemType").value("PRODUCT"))
                 .andExpect(jsonPath("$.data.items[1].id").value(cartItemId2.toString()))
-                .andExpect(jsonPath("$.data.items[1].item_type").value("PC_CASE"));
+                .andExpect(jsonPath("$.data.items[1].itemType").value("PC_CASE"));
     }
 
     @Test
