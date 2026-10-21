@@ -19,6 +19,10 @@ public interface CartService {
 
     CartItemResponse updateCartItemQuantity(String email, UUID itemId, UpdateCartItemRequest request);
 
+    void deleteCartItem(UUID userId, UUID itemId);
+
+    void deleteCartItem(String email, UUID itemId);
+
     CartItemResponse addPcCaseToCart(UUID userId, AddCartPcCaseRequest request);
 
     CartItemResponse addPcCaseToCart(String email, AddCartPcCaseRequest request);

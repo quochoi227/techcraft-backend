@@ -73,6 +73,22 @@ public class CartServiceImpl implements CartService {
     }
 
     @Override
+    public void deleteCartItem(UUID userId, UUID itemId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId));
+
+        removeProductFromCart(user, itemId);
+    }
+
+    @Override
+    public void deleteCartItem(String email, UUID itemId) {
+        User user = userRepository.findByEmail(email != null ? email.toLowerCase().trim() : null)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
+
+        removeProductFromCart(user, itemId);
+    }
+
+    @Override
     public CartItemResponse addPcCaseToCart(UUID userId, AddCartPcCaseRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId));
@@ -237,6 +253,22 @@ public class CartServiceImpl implements CartService {
 
         CartItem savedItem = cartItemRepository.save(cartItem);
         return cartMapper.toResponse(savedItem);
+    }
+
+    private void removeProductFromCart(User user, UUID itemId) {
+        Optional<CartItem> cartItemOpt = cartItemRepository.findByIdAndUserId(itemId, user.getId());
+        if (cartItemOpt.isEmpty()) {
+            cartItemOpt = cartItemRepository.findByUserIdAndProductId(user.getId(), itemId);
+        }
+
+        CartItem cartItem = cartItemOpt.orElseThrow(() ->
+                new ResourceNotFoundException("Không tìm thấy linh kiện trong giỏ hàng với ID: " + itemId));
+
+        if (cartItem.getProduct() == null) {
+            throw new BadRequestException("Mục này trong giỏ hàng không phải là linh kiện lẻ.");
+        }
+
+        cartItemRepository.delete(cartItem);
     }
 
     private int calculateAvailablePcCaseStock(PcCase pcCase) {

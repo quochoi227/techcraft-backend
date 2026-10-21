@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -70,6 +71,19 @@ public class CartController {
 
         CartItemResponse response = cartService.updateCartItemQuantity(principal.getName(), id, request);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật số lượng linh kiện trong giỏ hàng thành công!", response));
+    }
+
+    @DeleteMapping("/items/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> deleteCartItem(
+            Principal principal,
+            @PathVariable UUID id) {
+        if (principal == null || principal.getName() == null) {
+            throw new UnauthorizedException("Vui lòng đăng nhập để thực hiện chức năng này.");
+        }
+
+        cartService.deleteCartItem(principal.getName(), id);
+        return ResponseEntity.ok(ApiResponse.success("Xoá linh kiện khỏi giỏ hàng thành công!", null));
     }
 
     @PostMapping("/pc-cases")
