@@ -6,12 +6,15 @@ import com.techcraft.techcraftbackend.dto.response.OrderResponse;
 import com.techcraft.techcraftbackend.entity.*;
 import com.techcraft.techcraftbackend.enums.OrderStatus;
 import com.techcraft.techcraftbackend.enums.PaymentMethod;
+import com.techcraft.techcraftbackend.enums.Role;
+import com.techcraft.techcraftbackend.exception.AppException;
 import com.techcraft.techcraftbackend.exception.BadRequestException;
 import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
 import com.techcraft.techcraftbackend.mapper.OrderMapper;
 import com.techcraft.techcraftbackend.repository.*;
 import com.techcraft.techcraftbackend.service.OrderService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,6 +50,22 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public OrderResponse cancelOrder(String email, UUID orderId) {
+        User user = userRepository.findByEmail(email != null ? email.toLowerCase().trim() : null)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
+
+        return processCancelOrder(user, orderId);
+    }
+
+    @Override
+    public OrderResponse cancelOrder(UUID userId, UUID orderId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId));
+
+        return processCancelOrder(user, orderId);
+    }
+
+    @Override
     public void restoreOrderStock(Order order) {
         if (order == null || order.getItems() == null) {
             return;
@@ -74,6 +93,51 @@ public class OrderServiceImpl implements OrderService {
                 }
             }
         }
+    }
+
+    private OrderResponse processCancelOrder(User user, UUID orderId) {
+        if (orderId == null) {
+            throw new BadRequestException("Mã đơn hàng không được để trống.");
+        }
+
+        Order order = orderRepository.findByIdWithDetails(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng với ID: " + orderId));
+
+        boolean isOwner = order.getUser() != null && order.getUser().getId().equals(user.getId());
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+
+        if (!isOwner && !isAdmin) {
+            throw new AppException("Bạn không có quyền hủy đơn hàng này.", HttpStatus.FORBIDDEN);
+        }
+
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new BadRequestException("Đơn hàng đã được hủy trước đó.");
+        }
+
+        if (order.getStatus() == OrderStatus.SHIPPING) {
+            throw new BadRequestException("Không thể hủy đơn hàng đang trong quá trình vận chuyển.");
+        }
+
+        if (order.getStatus() == OrderStatus.DELIVERED) {
+            throw new BadRequestException("Không thể hủy đơn hàng đã giao thành công.");
+        }
+
+        if (order.getStatus() == OrderStatus.CONFIRMED) {
+            throw new BadRequestException("Không thể hủy đơn hàng khi đã được xác nhận.");
+        }
+
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new BadRequestException("Chỉ có thể hủy đơn hàng khi đơn hàng đang ở trạng thái chờ xử lý.");
+        }
+
+        // Hoàn lại số lượng tồn kho của các sản phẩm và linh kiện PC Case
+        restoreOrderStock(order);
+
+        // Chuyển trạng thái đơn hàng sang CANCELLED
+        order.setStatus(OrderStatus.CANCELLED);
+        Order savedOrder = orderRepository.save(order);
+
+        return orderMapper.toResponse(savedOrder);
     }
 
     private OrderResponse processCreateOrder(User user, CreateOrderRequest request) {

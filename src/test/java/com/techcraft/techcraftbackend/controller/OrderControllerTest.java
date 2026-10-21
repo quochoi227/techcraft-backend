@@ -6,13 +6,16 @@ import com.techcraft.techcraftbackend.dto.response.OrderItemResponse;
 import com.techcraft.techcraftbackend.dto.response.OrderResponse;
 import com.techcraft.techcraftbackend.enums.OrderStatus;
 import com.techcraft.techcraftbackend.enums.PaymentMethod;
+import com.techcraft.techcraftbackend.exception.AppException;
 import com.techcraft.techcraftbackend.exception.BadRequestException;
+import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
 import com.techcraft.techcraftbackend.service.OrderService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -27,6 +30,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -154,5 +158,83 @@ class OrderControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.id").value(orderId.toString()));
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thành công khi đã đăng nhập (200 OK)")
+    @WithMockUser(username = "customer@example.com", roles = "USER")
+    void cancelOrder_AsAuthenticatedUser_Returns200Ok() throws Exception {
+        UUID orderId = UUID.randomUUID();
+
+        OrderResponse expectedResponse = OrderResponse.builder()
+                .id(orderId)
+                .userEmail("customer@example.com")
+                .status(OrderStatus.CANCELLED)
+                .totalAmount(BigDecimal.valueOf(5000000))
+                .build();
+
+        when(orderService.cancelOrder(eq("customer@example.com"), eq(orderId)))
+                .thenReturn(expectedResponse);
+
+        mockMvc.perform(put("/api/orders/{id}/cancel", orderId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Hủy đơn hàng thành công!"))
+                .andExpect(jsonPath("$.data.id").value(orderId.toString()))
+                .andExpect(jsonPath("$.data.status").value("CANCELLED"));
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thất bại khi chưa đăng nhập (401 Unauthorized)")
+    void cancelOrder_AsGuest_Returns401Unauthorized() throws Exception {
+        UUID orderId = UUID.randomUUID();
+
+        mockMvc.perform(put("/api/orders/{id}/cancel", orderId))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thất bại khi không tìm thấy đơn hàng (404 Not Found)")
+    @WithMockUser(username = "customer@example.com", roles = "USER")
+    void cancelOrder_WhenOrderNotFound_Returns404NotFound() throws Exception {
+        UUID orderId = UUID.randomUUID();
+
+        when(orderService.cancelOrder(eq("customer@example.com"), eq(orderId)))
+                .thenThrow(new ResourceNotFoundException("Không tìm thấy đơn hàng với ID: " + orderId));
+
+        mockMvc.perform(put("/api/orders/{id}/cancel", orderId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy đơn hàng với ID: " + orderId));
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thất bại khi không phải chủ sở hữu hoặc admin (403 Forbidden)")
+    @WithMockUser(username = "customer@example.com", roles = "USER")
+    void cancelOrder_WhenNotOwnerAndNotAdmin_Returns403Forbidden() throws Exception {
+        UUID orderId = UUID.randomUUID();
+
+        when(orderService.cancelOrder(eq("customer@example.com"), eq(orderId)))
+                .thenThrow(new AppException("Bạn không có quyền hủy đơn hàng này.", HttpStatus.FORBIDDEN));
+
+        mockMvc.perform(put("/api/orders/{id}/cancel", orderId))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Bạn không có quyền hủy đơn hàng này."));
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thất bại khi trạng thái đơn hàng không hợp lệ (400 Bad Request)")
+    @WithMockUser(username = "customer@example.com", roles = "USER")
+    void cancelOrder_WhenStatusCannotBeCancelled_Returns400BadRequest() throws Exception {
+        UUID orderId = UUID.randomUUID();
+
+        when(orderService.cancelOrder(eq("customer@example.com"), eq(orderId)))
+                .thenThrow(new BadRequestException("Không thể hủy đơn hàng đang trong quá trình vận chuyển."));
+
+        mockMvc.perform(put("/api/orders/{id}/cancel", orderId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không thể hủy đơn hàng đang trong quá trình vận chuyển."));
     }
 }
