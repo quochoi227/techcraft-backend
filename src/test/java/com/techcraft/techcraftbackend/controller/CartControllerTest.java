@@ -706,4 +706,72 @@ class CartControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false));
     }
+
+    // ==================== Tests cho DELETE /api/cart/pc-cases/{id} ====================
+
+    @Test
+    @DisplayName("Xoá cấu hình PC khỏi giỏ hàng thành công khi đã đăng nhập (200 OK)")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void deleteCartPcCase_AsAuthenticatedUser_Returns200Ok() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+
+        doNothing().when(cartService).deleteCartPcCase("user@example.com", cartItemId);
+
+        mockMvc.perform(delete("/api/cart/pc-cases/{id}", cartItemId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Xoá cấu hình PC khỏi giỏ hàng thành công!"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        verify(cartService).deleteCartPcCase("user@example.com", cartItemId);
+    }
+
+    @Test
+    @DisplayName("Chưa đăng nhập khi xoá cấu hình PC -> Trả về 401 Unauthorized")
+    void deleteCartPcCase_Unauthenticated_Returns401Unauthorized() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/cart/pc-cases/{id}", cartItemId))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false));
+    }
+
+    @Test
+    @DisplayName("Không tìm thấy cấu hình PC trong giỏ hàng khi xoá -> Trả về 404 Not Found")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void deleteCartPcCase_NotFound_Returns404NotFound() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+
+        doThrow(new ResourceNotFoundException("Không tìm thấy cấu hình PC trong giỏ hàng với ID: " + cartItemId))
+                .when(cartService).deleteCartPcCase("user@example.com", cartItemId);
+
+        mockMvc.perform(delete("/api/cart/pc-cases/{id}", cartItemId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy cấu hình PC trong giỏ hàng với ID: " + cartItemId));
+    }
+
+    @Test
+    @DisplayName("Mục giỏ hàng không phải cấu hình PC (ví dụ linh kiện lẻ) khi xoá -> Trả về 400 Bad Request")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void deleteCartPcCase_NotAPcCaseItem_Returns400BadRequest() throws Exception {
+        UUID cartItemId = UUID.randomUUID();
+
+        doThrow(new BadRequestException("Mục này trong giỏ hàng không phải là cấu hình PC."))
+                .when(cartService).deleteCartPcCase("user@example.com", cartItemId);
+
+        mockMvc.perform(delete("/api/cart/pc-cases/{id}", cartItemId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Mục này trong giỏ hàng không phải là cấu hình PC."));
+    }
+
+    @Test
+    @DisplayName("UUID không hợp lệ khi xoá cấu hình PC -> Trả về 400 Bad Request")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void deleteCartPcCase_InvalidUuid_Returns400BadRequest() throws Exception {
+        mockMvc.perform(delete("/api/cart/pc-cases/invalid-uuid-format"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false));
+    }
 }

@@ -1456,4 +1456,124 @@ class CartServiceTest {
         assertEquals("Mục này trong giỏ hàng không phải là linh kiện lẻ.", exception.getMessage());
         verify(cartItemRepository, never()).delete(any());
     }
+
+    // ==================== Tests cho deleteCartPcCase ====================
+
+    @Test
+    @DisplayName("Xóa cấu hình PC khỏi giỏ hàng thành công khi tìm theo cartItemId")
+    void deleteCartPcCase_Success_WhenFoundByCartItemId() {
+        UUID cartItemId = UUID.randomUUID();
+        CartItem cartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(cartItem));
+
+        cartService.deleteCartPcCase(userId, cartItemId);
+
+        verify(cartItemRepository, times(1)).delete(cartItem);
+    }
+
+    @Test
+    @DisplayName("Xóa cấu hình PC khỏi giỏ hàng thành công qua fallback theo pcCaseId")
+    void deleteCartPcCase_Success_WhenFoundByPcCaseIdFallback() {
+        CartItem cartItem = CartItem.builder()
+                .id(UUID.randomUUID())
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .quantity(2)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(pcCaseId, userId)).thenReturn(Optional.empty());
+        when(cartItemRepository.findByUserIdAndPcCaseId(userId, pcCaseId)).thenReturn(Optional.of(cartItem));
+
+        cartService.deleteCartPcCase(userId, pcCaseId);
+
+        verify(cartItemRepository, times(1)).delete(cartItem);
+    }
+
+    @Test
+    @DisplayName("Xóa cấu hình PC khỏi giỏ hàng bằng email thành công")
+    void deleteCartPcCase_ByEmail_Success() {
+        UUID cartItemId = UUID.randomUUID();
+        CartItem cartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(cartItem));
+
+        cartService.deleteCartPcCase("user@example.com", cartItemId);
+
+        verify(cartItemRepository, times(1)).delete(cartItem);
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy user theo userId khi xóa cấu hình PC")
+    void deleteCartPcCase_ThrowsResourceNotFoundException_WhenUserNotFoundByUserId() {
+        UUID cartItemId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> cartService.deleteCartPcCase(userId, cartItemId));
+        verify(cartItemRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy user theo email khi xóa cấu hình PC")
+    void deleteCartPcCase_ByEmail_ThrowsResourceNotFoundException_WhenUserNotFound() {
+        UUID cartItemId = UUID.randomUUID();
+        when(userRepository.findByEmail("notfound@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> cartService.deleteCartPcCase("notfound@example.com", cartItemId));
+        verify(cartItemRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy cấu hình PC trong giỏ hàng (cả ID và fallback)")
+    void deleteCartPcCase_ThrowsResourceNotFoundException_WhenItemNotFound() {
+        UUID cartItemId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.empty());
+        when(cartItemRepository.findByUserIdAndPcCaseId(userId, cartItemId)).thenReturn(Optional.empty());
+
+        ResourceNotFoundException exception = assertThrows(
+                ResourceNotFoundException.class,
+                () -> cartService.deleteCartPcCase(userId, cartItemId)
+        );
+
+        assertTrue(exception.getMessage().contains("Không tìm thấy cấu hình PC trong giỏ hàng với ID: " + cartItemId));
+        verify(cartItemRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi mục trong giỏ hàng không phải là cấu hình PC (ví dụ linh kiện lẻ)")
+    void deleteCartPcCase_ThrowsBadRequestException_WhenCartItemIsNotPcCase() {
+        UUID cartItemId = UUID.randomUUID();
+        CartItem cartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .product(mockProduct)
+                .pcCase(null)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(cartItem));
+
+        BadRequestException exception = assertThrows(
+                BadRequestException.class,
+                () -> cartService.deleteCartPcCase(userId, cartItemId)
+        );
+
+        assertEquals("Mục này trong giỏ hàng không phải là cấu hình PC.", exception.getMessage());
+        verify(cartItemRepository, never()).delete(any());
+    }
 }

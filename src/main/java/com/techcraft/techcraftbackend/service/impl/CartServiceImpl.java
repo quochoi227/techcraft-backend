@@ -113,6 +113,22 @@ public class CartServiceImpl implements CartService {
     }
 
     @Override
+    public void deleteCartPcCase(UUID userId, UUID itemId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId));
+
+        removePcCaseFromCart(user, itemId);
+    }
+
+    @Override
+    public void deleteCartPcCase(String email, UUID itemId) {
+        User user = userRepository.findByEmail(email != null ? email.toLowerCase().trim() : null)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
+
+        removePcCaseFromCart(user, itemId);
+    }
+
+    @Override
     public CartItemResponse updateCartPcCaseQuantity(String email, UUID itemId, UpdateCartPcCaseRequest request) {
         User user = userRepository.findByEmail(email != null ? email.toLowerCase().trim() : null)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
@@ -356,6 +372,22 @@ public class CartServiceImpl implements CartService {
 
         CartItem savedItem = cartItemRepository.save(cartItem);
         return cartMapper.toResponse(savedItem);
+    }
+
+    private void removePcCaseFromCart(User user, UUID itemId) {
+        Optional<CartItem> cartItemOpt = cartItemRepository.findByIdAndUserId(itemId, user.getId());
+        if (cartItemOpt.isEmpty()) {
+            cartItemOpt = cartItemRepository.findByUserIdAndPcCaseId(user.getId(), itemId);
+        }
+
+        CartItem cartItem = cartItemOpt.orElseThrow(() ->
+                new ResourceNotFoundException("Không tìm thấy cấu hình PC trong giỏ hàng với ID: " + itemId));
+
+        if (cartItem.getPcCase() == null) {
+            throw new BadRequestException("Mục này trong giỏ hàng không phải là cấu hình PC.");
+        }
+
+        cartItemRepository.delete(cartItem);
     }
 
     private CartItemResponse updatePcCaseQuantityInCart(User user, UUID itemId, UpdateCartPcCaseRequest request) {

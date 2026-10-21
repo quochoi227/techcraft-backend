@@ -114,4 +114,17 @@ public class CartController {
         CartItemResponse response = cartService.updateCartPcCaseQuantity(principal.getName(), id, request);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật số lượng cấu hình PC trong giỏ hàng thành công!", response));
     }
+
+    @DeleteMapping("/pc-cases/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> deleteCartPcCase(
+            Principal principal,
+            @PathVariable UUID id) {
+        if (principal == null || principal.getName() == null) {
+            throw new UnauthorizedException("Vui lòng đăng nhập để thực hiện chức năng này.");
+        }
+
+        cartService.deleteCartPcCase(principal.getName(), id);
+        return ResponseEntity.ok(ApiResponse.success("Xoá cấu hình PC khỏi giỏ hàng thành công!", null));
+    }
 }
