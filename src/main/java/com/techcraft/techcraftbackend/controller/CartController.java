@@ -4,6 +4,7 @@ import com.techcraft.techcraftbackend.dto.ApiResponse;
 import com.techcraft.techcraftbackend.dto.request.AddCartItemRequest;
 import com.techcraft.techcraftbackend.dto.request.AddCartPcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdateCartItemRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateCartPcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CartItemResponse;
 import com.techcraft.techcraftbackend.dto.response.CartResponse;
 import com.techcraft.techcraftbackend.exception.UnauthorizedException;
@@ -84,5 +85,19 @@ public class CartController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Thêm cấu hình PC vào giỏ hàng thành công!", response));
+    }
+
+    @PutMapping("/pc-cases/{id}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<CartItemResponse>> updateCartPcCaseQuantity(
+            Principal principal,
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateCartPcCaseRequest request) {
+        if (principal == null || principal.getName() == null) {
+            throw new UnauthorizedException("Vui lòng đăng nhập để thực hiện chức năng này.");
+        }
+
+        CartItemResponse response = cartService.updateCartPcCaseQuantity(principal.getName(), id, request);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật số lượng cấu hình PC trong giỏ hàng thành công!", response));
     }
 }

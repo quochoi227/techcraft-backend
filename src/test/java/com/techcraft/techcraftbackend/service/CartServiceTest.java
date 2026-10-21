@@ -3,6 +3,7 @@ package com.techcraft.techcraftbackend.service;
 import com.techcraft.techcraftbackend.dto.request.AddCartItemRequest;
 import com.techcraft.techcraftbackend.dto.request.AddCartPcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdateCartItemRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateCartPcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CartItemResponse;
 import com.techcraft.techcraftbackend.dto.response.CartResponse;
 import com.techcraft.techcraftbackend.entity.CartItem;
@@ -881,6 +882,355 @@ class CartServiceTest {
         BadRequestException exception = assertThrows(BadRequestException.class,
                 () -> cartService.addPcCaseToCart(userId, request));
         assertTrue(exception.getMessage().contains("vượt quá số lượng"));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    // ==================== Tests cho cập nhật số lượng PC Case (updateCartPcCaseQuantity) ====================
+
+    @Test
+    @DisplayName("Cập nhật số lượng PC Case thành công khi tìm thấy theo cartItemId")
+    void updateCartPcCaseQuantity_Success_WhenFoundById() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(3)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(mockPcCase));
+        when(cartItemRepository.save(existingCartItem)).thenReturn(existingCartItem);
+
+        CartItemResponse expectedResponse = CartItemResponse.builder()
+                .id(cartItemId)
+                .pcCaseId(pcCaseId)
+                .pcCaseName(mockPcCase.getName())
+                .itemType("PC_CASE")
+                .quantity(3)
+                .subtotal(BigDecimal.valueOf(40500000))
+                .build();
+
+        when(cartMapper.toResponse(existingCartItem)).thenReturn(expectedResponse);
+
+        CartItemResponse actualResponse = cartService.updateCartPcCaseQuantity(userId, cartItemId, request);
+
+        assertNotNull(actualResponse);
+        assertEquals(3, actualResponse.getQuantity());
+        assertEquals(3, existingCartItem.getQuantity());
+        verify(cartItemRepository).save(existingCartItem);
+    }
+
+    @Test
+    @DisplayName("Cập nhật số lượng PC Case thành công khi tìm fallback theo pcCaseId")
+    void updateCartPcCaseQuantity_Success_WhenFoundByPcCaseIdFallback() {
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(UUID.randomUUID())
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(pcCaseId, userId)).thenReturn(Optional.empty());
+        when(cartItemRepository.findByUserIdAndPcCaseId(userId, pcCaseId)).thenReturn(Optional.of(existingCartItem));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(mockPcCase));
+        when(cartItemRepository.save(existingCartItem)).thenReturn(existingCartItem);
+
+        CartItemResponse expectedResponse = CartItemResponse.builder()
+                .id(existingCartItem.getId())
+                .pcCaseId(pcCaseId)
+                .pcCaseName(mockPcCase.getName())
+                .itemType("PC_CASE")
+                .quantity(2)
+                .build();
+
+        when(cartMapper.toResponse(existingCartItem)).thenReturn(expectedResponse);
+
+        CartItemResponse actualResponse = cartService.updateCartPcCaseQuantity(userId, pcCaseId, request);
+
+        assertNotNull(actualResponse);
+        assertEquals(2, actualResponse.getQuantity());
+        assertEquals(2, existingCartItem.getQuantity());
+        verify(cartItemRepository).save(existingCartItem);
+    }
+
+    @Test
+    @DisplayName("Cập nhật số lượng PC Case theo email thành công")
+    void updateCartPcCaseQuantity_Success_ByEmail() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(mockPcCase));
+        when(cartItemRepository.save(existingCartItem)).thenReturn(existingCartItem);
+
+        CartItemResponse expectedResponse = CartItemResponse.builder()
+                .id(cartItemId)
+                .quantity(2)
+                .build();
+
+        when(cartMapper.toResponse(existingCartItem)).thenReturn(expectedResponse);
+
+        CartItemResponse actualResponse = cartService.updateCartPcCaseQuantity("user@example.com", cartItemId, request);
+
+        assertNotNull(actualResponse);
+        assertEquals(2, actualResponse.getQuantity());
+        verify(cartItemRepository).save(existingCartItem);
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy user khi cập nhật PC Case")
+    void updateCartPcCaseQuantity_ThrowsResourceNotFoundException_WhenUserNotFound() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(2)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                cartService.updateCartPcCaseQuantity(userId, cartItemId, request));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy cấu hình PC trong giỏ hàng")
+    void updateCartPcCaseQuantity_ThrowsResourceNotFoundException_WhenCartItemNotFound() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(2)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.empty());
+        when(cartItemRepository.findByUserIdAndPcCaseId(userId, cartItemId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                cartService.updateCartPcCaseQuantity(userId, cartItemId, request));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi mục trong giỏ là linh kiện lẻ chứ không phải cấu hình PC")
+    void updateCartPcCaseQuantity_ThrowsBadRequestException_WhenCartItemIsProduct() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItem productCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .product(mockProduct)
+                .pcCase(null)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(productCartItem));
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+                cartService.updateCartPcCaseQuantity(userId, cartItemId, request));
+        assertTrue(exception.getMessage().contains("không phải là cấu hình PC"));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy thông tin cấu hình PC tương ứng")
+    void updateCartPcCaseQuantity_ThrowsResourceNotFoundException_WhenPcCaseNotFound() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                cartService.updateCartPcCaseQuantity(userId, cartItemId, request));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi cấu hình PC ngừng kinh doanh khi cập nhật")
+    void updateCartPcCaseQuantity_ThrowsBadRequestException_WhenPcCaseInactive() {
+        UUID cartItemId = UUID.randomUUID();
+        mockPcCase.setActive(false);
+
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(mockPcCase));
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+                cartService.updateCartPcCaseQuantity(userId, cartItemId, request));
+        assertTrue(exception.getMessage().contains("ngừng kinh doanh"));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi PC Case chưa có danh sách linh kiện khi cập nhật")
+    void updateCartPcCaseQuantity_ThrowsBadRequestException_WhenPcCaseHasNoItems() {
+        UUID cartItemId = UUID.randomUUID();
+        mockPcCase.setItems(new ArrayList<>());
+
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(mockPcCase));
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+                cartService.updateCartPcCaseQuantity(userId, cartItemId, request));
+        assertTrue(exception.getMessage().contains("chưa có danh sách linh kiện"));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi một linh kiện thành phần bị ngừng kinh doanh khi cập nhật")
+    void updateCartPcCaseQuantity_ThrowsBadRequestException_WhenComponentInactive() {
+        UUID cartItemId = UUID.randomUUID();
+        mockPcCase.getItems().get(1).getProduct().setActive(false);
+
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(mockPcCase));
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+                cartService.updateCartPcCaseQuantity(userId, cartItemId, request));
+        assertTrue(exception.getMessage().contains("ngừng kinh doanh"));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi linh kiện thành phần trong cấu hình PC hết hàng khi cập nhật")
+    void updateCartPcCaseQuantity_ThrowsBadRequestException_WhenComponentOutOfStock() {
+        UUID cartItemId = UUID.randomUUID();
+        // GPU stock = 0
+        mockPcCase.getItems().get(1).getProduct().setStockQuantity(0);
+
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(2)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(mockPcCase));
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+                cartService.updateCartPcCaseQuantity(userId, cartItemId, request));
+        assertTrue(exception.getMessage().contains("hết hàng"));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi số lượng PC Case yêu cầu vượt quá khả năng lắp ráp")
+    void updateCartPcCaseQuantity_ThrowsBadRequestException_WhenQuantityExceedsAvailableStock() {
+        UUID cartItemId = UUID.randomUUID();
+        // min stock = 4 (GPU stock = 4)
+        UpdateCartPcCaseRequest request = UpdateCartPcCaseRequest.builder()
+                .quantity(5)
+                .build();
+
+        CartItem existingCartItem = CartItem.builder()
+                .id(cartItemId)
+                .user(mockUser)
+                .pcCase(mockPcCase)
+                .quantity(1)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(cartItemRepository.findByIdAndUserId(cartItemId, userId)).thenReturn(Optional.of(existingCartItem));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(mockPcCase));
+
+        BadRequestException exception = assertThrows(BadRequestException.class, () ->
+                cartService.updateCartPcCaseQuantity(userId, cartItemId, request));
+        assertTrue(exception.getMessage().contains("vượt quá số lượng"));
+        verify(cartItemRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi số lượng PC Case yêu cầu < 1 hoặc null")
+    void updateCartPcCaseQuantity_ThrowsBadRequestException_WhenQuantityInvalid() {
+        UUID cartItemId = UUID.randomUUID();
+        UpdateCartPcCaseRequest requestNull = UpdateCartPcCaseRequest.builder()
+                .quantity(null)
+                .build();
+        UpdateCartPcCaseRequest requestZero = UpdateCartPcCaseRequest.builder()
+                .quantity(0)
+                .build();
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+
+        assertThrows(BadRequestException.class, () ->
+                cartService.updateCartPcCaseQuantity(userId, cartItemId, requestNull));
+        assertThrows(BadRequestException.class, () ->
+                cartService.updateCartPcCaseQuantity(userId, cartItemId, requestZero));
         verify(cartItemRepository, never()).save(any());
     }
 

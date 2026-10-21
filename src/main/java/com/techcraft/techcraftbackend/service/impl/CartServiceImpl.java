@@ -3,6 +3,7 @@ package com.techcraft.techcraftbackend.service.impl;
 import com.techcraft.techcraftbackend.dto.request.AddCartItemRequest;
 import com.techcraft.techcraftbackend.dto.request.AddCartPcCaseRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdateCartItemRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateCartPcCaseRequest;
 import com.techcraft.techcraftbackend.dto.response.CartItemResponse;
 import com.techcraft.techcraftbackend.dto.response.CartResponse;
 import com.techcraft.techcraftbackend.entity.CartItem;
@@ -85,6 +86,22 @@ public class CartServiceImpl implements CartService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
 
         return addPcCaseToUserCart(user, request);
+    }
+
+    @Override
+    public CartItemResponse updateCartPcCaseQuantity(UUID userId, UUID itemId, UpdateCartPcCaseRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId));
+
+        return updatePcCaseQuantityInCart(user, itemId, request);
+    }
+
+    @Override
+    public CartItemResponse updateCartPcCaseQuantity(String email, UUID itemId, UpdateCartPcCaseRequest request) {
+        User user = userRepository.findByEmail(email != null ? email.toLowerCase().trim() : null)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
+
+        return updatePcCaseQuantityInCart(user, itemId, request);
     }
 
     @Override
@@ -215,16 +232,14 @@ public class CartServiceImpl implements CartService {
             ));
         }
 
+        cartItem.setProduct(product);
         cartItem.setQuantity(request.getQuantity());
 
         CartItem savedItem = cartItemRepository.save(cartItem);
         return cartMapper.toResponse(savedItem);
     }
 
-    private CartItemResponse addPcCaseToUserCart(User user, AddCartPcCaseRequest request) {
-        PcCase pcCase = pcCaseRepository.findById(request.getPcCaseId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + request.getPcCaseId()));
-
+    private int calculateAvailablePcCaseStock(PcCase pcCase) {
         if (!pcCase.isActive()) {
             throw new BadRequestException("Cấu hình PC này hiện đang ngừng kinh doanh.");
         }
@@ -265,6 +280,15 @@ public class CartServiceImpl implements CartService {
             throw new BadRequestException("Cấu hình PC này hiện không đủ linh kiện trong kho để lắp ráp.");
         }
 
+        return availablePcCaseStock;
+    }
+
+    private CartItemResponse addPcCaseToUserCart(User user, AddCartPcCaseRequest request) {
+        PcCase pcCase = pcCaseRepository.findById(request.getPcCaseId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + request.getPcCaseId()));
+
+        int availablePcCaseStock = calculateAvailablePcCaseStock(pcCase);
+
         int requestedQuantity = (request.getQuantity() != null && request.getQuantity() > 0)
                 ? request.getQuantity()
                 : 1;
@@ -297,6 +321,42 @@ public class CartServiceImpl implements CartService {
                     .quantity(requestedQuantity)
                     .build();
         }
+
+        CartItem savedItem = cartItemRepository.save(cartItem);
+        return cartMapper.toResponse(savedItem);
+    }
+
+    private CartItemResponse updatePcCaseQuantityInCart(User user, UUID itemId, UpdateCartPcCaseRequest request) {
+        if (request == null || request.getQuantity() == null || request.getQuantity() < 1) {
+            throw new BadRequestException("Số lượng cấu hình PC phải lớn hơn hoặc bằng 1.");
+        }
+
+        Optional<CartItem> cartItemOpt = cartItemRepository.findByIdAndUserId(itemId, user.getId());
+        if (cartItemOpt.isEmpty()) {
+            cartItemOpt = cartItemRepository.findByUserIdAndPcCaseId(user.getId(), itemId);
+        }
+
+        CartItem cartItem = cartItemOpt.orElseThrow(() ->
+                new ResourceNotFoundException("Không tìm thấy cấu hình PC trong giỏ hàng với ID: " + itemId));
+
+        if (cartItem.getPcCase() == null) {
+            throw new BadRequestException("Mục này trong giỏ hàng không phải là cấu hình PC.");
+        }
+
+        PcCase pcCase = pcCaseRepository.findById(cartItem.getPcCase().getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + cartItem.getPcCase().getId()));
+
+        int availablePcCaseStock = calculateAvailablePcCaseStock(pcCase);
+
+        if (request.getQuantity() > availablePcCaseStock) {
+            throw new BadRequestException(String.format(
+                    "Số lượng yêu cầu (%d) vượt quá số lượng tối đa có thể lắp ráp hiện tại (%d).",
+                    request.getQuantity(), availablePcCaseStock
+            ));
+        }
+
+        cartItem.setPcCase(pcCase);
+        cartItem.setQuantity(request.getQuantity());
 
         CartItem savedItem = cartItemRepository.save(cartItem);
         return cartMapper.toResponse(savedItem);
