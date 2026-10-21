@@ -12,5 +12,9 @@ public interface OrderService {
 
     OrderResponse createOrder(UUID userId, CreateOrderRequest request);
 
+    OrderResponse cancelOrder(String email, UUID orderId);
+
+    OrderResponse cancelOrder(UUID userId, UUID orderId);
+
     void restoreOrderStock(Order order);
 }

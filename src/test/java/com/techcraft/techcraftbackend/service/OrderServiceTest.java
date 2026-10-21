@@ -9,6 +9,8 @@ import com.techcraft.techcraftbackend.enums.OrderStatus;
 import com.techcraft.techcraftbackend.enums.PaymentMethod;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
 import com.techcraft.techcraftbackend.enums.Role;
+import com.techcraft.techcraftbackend.exception.AppException;
+import org.springframework.http.HttpStatus;
 import com.techcraft.techcraftbackend.exception.BadRequestException;
 import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
 import com.techcraft.techcraftbackend.mapper.OrderMapper;
@@ -586,5 +588,241 @@ class OrderServiceTest {
 
         verify(productRepository, times(2)).save(sampleCpu);
         verify(productRepository, times(1)).save(sampleGpu);
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thành công qua email: trạng thái chuyển CANCELLED và hoàn kho")
+    void cancelOrder_ByEmail_SuccessfullyCancelsOrder_AndRestoresStock() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .user(sampleUser)
+                .status(OrderStatus.PENDING)
+                .items(new ArrayList<>())
+                .build();
+
+        sampleCpu.setStockQuantity(8);
+        OrderItem item1 = OrderItem.builder()
+                .id(UUID.randomUUID())
+                .order(order)
+                .product(sampleCpu)
+                .quantity(2)
+                .build();
+
+        sampleGpu.setStockQuantity(4);
+        OrderItem item2 = OrderItem.builder()
+                .id(UUID.randomUUID())
+                .order(order)
+                .pcCase(samplePcCase)
+                .quantity(1)
+                .build();
+
+        order.getItems().add(item1);
+        order.getItems().add(item2);
+
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderMapper.toResponse(any(Order.class))).thenAnswer(invocation -> {
+            Order o = invocation.getArgument(0);
+            return OrderResponse.builder()
+                    .id(o.getId())
+                    .status(o.getStatus())
+                    .build();
+        });
+
+        OrderResponse response = orderService.cancelOrder("customer@example.com", order.getId());
+
+        assertNotNull(response);
+        assertEquals(OrderStatus.CANCELLED, order.getStatus());
+        assertEquals(OrderStatus.CANCELLED, response.getStatus());
+
+        assertEquals(11, sampleCpu.getStockQuantity());
+        assertEquals(5, sampleGpu.getStockQuantity());
+
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thành công qua userId")
+    void cancelOrder_ByUserId_SuccessfullyCancelsOrder() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .user(sampleUser)
+                .status(OrderStatus.PENDING)
+                .items(new ArrayList<>())
+                .build();
+
+        when(userRepository.findById(sampleUser.getId())).thenReturn(Optional.of(sampleUser));
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderMapper.toResponse(any(Order.class))).thenReturn(OrderResponse.builder().id(order.getId()).status(OrderStatus.CANCELLED).build());
+
+        OrderResponse response = orderService.cancelOrder(sampleUser.getId(), order.getId());
+
+        assertNotNull(response);
+        assertEquals(OrderStatus.CANCELLED, order.getStatus());
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thất bại khi không tìm thấy người dùng theo email")
+    void cancelOrder_WhenUserNotFoundByEmail_ThrowsResourceNotFoundException() {
+        UUID orderId = UUID.randomUUID();
+        when(userRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                orderService.cancelOrder("unknown@example.com", orderId));
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thất bại khi không tìm thấy người dùng theo userId")
+    void cancelOrder_WhenUserNotFoundById_ThrowsResourceNotFoundException() {
+        UUID userId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                orderService.cancelOrder(userId, orderId));
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thất bại khi mã đơn hàng là null")
+    void cancelOrder_WhenOrderIdIsNull_ThrowsBadRequestException() {
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                orderService.cancelOrder("customer@example.com", (UUID) null));
+        assertEquals("Mã đơn hàng không được để trống.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thất bại khi không tìm thấy đơn hàng")
+    void cancelOrder_WhenOrderNotFound_ThrowsResourceNotFoundException() {
+        UUID orderId = UUID.randomUUID();
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+        when(orderRepository.findByIdWithDetails(orderId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                orderService.cancelOrder("customer@example.com", orderId));
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thất bại khi người dùng không phải chủ sở hữu đơn hàng (403 Forbidden)")
+    void cancelOrder_WhenNotOwnerAndNotAdmin_ThrowsAppExceptionForbidden() {
+        User otherUser = User.builder()
+                .id(UUID.randomUUID())
+                .email("other@example.com")
+                .role(Role.USER)
+                .build();
+
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .user(otherUser)
+                .status(OrderStatus.PENDING)
+                .build();
+
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                orderService.cancelOrder("customer@example.com", order.getId()));
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
+        assertEquals("Bạn không có quyền hủy đơn hàng này.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Admin có quyền hủy đơn hàng của người dùng khác")
+    void cancelOrder_AsAdmin_SuccessfullyCancelsOtherUsersOrder() {
+        User adminUser = User.builder()
+                .id(UUID.randomUUID())
+                .email("admin@example.com")
+                .role(Role.ADMIN)
+                .build();
+
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .user(sampleUser)
+                .status(OrderStatus.PENDING)
+                .items(new ArrayList<>())
+                .build();
+
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(adminUser));
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderMapper.toResponse(any(Order.class))).thenReturn(OrderResponse.builder().id(order.getId()).status(OrderStatus.CANCELLED).build());
+
+        OrderResponse response = orderService.cancelOrder("admin@example.com", order.getId());
+
+        assertNotNull(response);
+        assertEquals(OrderStatus.CANCELLED, order.getStatus());
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thất bại khi đơn hàng đã bị hủy trước đó")
+    void cancelOrder_WhenStatusIsCancelled_ThrowsBadRequestException() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .user(sampleUser)
+                .status(OrderStatus.CANCELLED)
+                .build();
+
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                orderService.cancelOrder("customer@example.com", order.getId()));
+        assertEquals("Đơn hàng đã được hủy trước đó.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thất bại khi đơn hàng đang vận chuyển (SHIPPING)")
+    void cancelOrder_WhenStatusIsShipping_ThrowsBadRequestException() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .user(sampleUser)
+                .status(OrderStatus.SHIPPING)
+                .build();
+
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                orderService.cancelOrder("customer@example.com", order.getId()));
+        assertEquals("Không thể hủy đơn hàng đang trong quá trình vận chuyển.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thất bại khi đơn hàng đã giao thành công (DELIVERED)")
+    void cancelOrder_WhenStatusIsDelivered_ThrowsBadRequestException() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .user(sampleUser)
+                .status(OrderStatus.DELIVERED)
+                .build();
+
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                orderService.cancelOrder("customer@example.com", order.getId()));
+        assertEquals("Không thể hủy đơn hàng đã giao thành công.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Hủy đơn hàng thất bại khi đơn hàng đã được xác nhận (CONFIRMED)")
+    void cancelOrder_WhenStatusIsConfirmed_ThrowsBadRequestException() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .user(sampleUser)
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                orderService.cancelOrder("customer@example.com", order.getId()));
+        assertEquals("Không thể hủy đơn hàng khi đã được xác nhận.", ex.getMessage());
     }
 }
