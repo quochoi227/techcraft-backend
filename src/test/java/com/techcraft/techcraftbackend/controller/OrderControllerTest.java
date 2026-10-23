@@ -2,9 +2,11 @@ package com.techcraft.techcraftbackend.controller;
 
 import com.techcraft.techcraftbackend.dto.request.CreateOrderItemRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderRequest;
+import com.techcraft.techcraftbackend.dto.request.OrderFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdateOrderStatusRequest;
 import com.techcraft.techcraftbackend.dto.response.OrderItemResponse;
 import com.techcraft.techcraftbackend.dto.response.OrderResponse;
+import com.techcraft.techcraftbackend.dto.response.PageResponse;
 import com.techcraft.techcraftbackend.enums.OrderStatus;
 import com.techcraft.techcraftbackend.enums.PaymentMethod;
 import com.techcraft.techcraftbackend.exception.AppException;
@@ -30,6 +32,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -348,5 +351,92 @@ class OrderControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("Đơn hàng đang chờ xử lý chỉ có thể chuyển sang CONFIRMED hoặc CANCELLED."));
+    }
+
+    @Test
+    @DisplayName("Lấy lịch sử đơn hàng thành công khi đã đăng nhập (200 OK)")
+    @WithMockUser(username = "customer@example.com", roles = "USER")
+    void getUserOrders_AsAuthenticatedUser_Returns200Ok() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        OrderResponse orderResponse = OrderResponse.builder()
+                .id(orderId)
+                .status(OrderStatus.PENDING)
+                .totalAmount(BigDecimal.valueOf(1000000))
+                .build();
+
+        PageResponse<OrderResponse> pageResponse = PageResponse.<OrderResponse>builder()
+                .content(List.of(orderResponse))
+                .page(0)
+                .size(10)
+                .totalElements(1)
+                .totalPages(1)
+                .first(true)
+                .last(true)
+                .empty(false)
+                .build();
+
+        when(orderService.getUserOrders(eq("customer@example.com"), any(OrderFilterRequest.class)))
+                .thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/orders"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Lấy lịch sử đơn hàng thành công!"))
+                .andExpect(jsonPath("$.data.content[0].id").value(orderId.toString()))
+                .andExpect(jsonPath("$.data.page").value(0))
+                .andExpect(jsonPath("$.data.size").value(10))
+                .andExpect(jsonPath("$.data.totalElements").value(1));
+    }
+
+    @Test
+    @DisplayName("Lấy lịch sử đơn hàng thành công kèm lọc trạng thái (200 OK)")
+    @WithMockUser(username = "customer@example.com", roles = "USER")
+    void getUserOrders_WithStatusFilter_Returns200Ok() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        OrderResponse orderResponse = OrderResponse.builder()
+                .id(orderId)
+                .status(OrderStatus.PENDING)
+                .build();
+
+        PageResponse<OrderResponse> pageResponse = PageResponse.<OrderResponse>builder()
+                .content(List.of(orderResponse))
+                .page(0)
+                .size(5)
+                .totalElements(1)
+                .totalPages(1)
+                .first(true)
+                .last(true)
+                .empty(false)
+                .build();
+
+        when(orderService.getUserOrders(eq("customer@example.com"), any(OrderFilterRequest.class)))
+                .thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/orders")
+                        .param("status", "PENDING")
+                        .param("page", "0")
+                        .param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content[0].status").value("PENDING"));
+    }
+
+    @Test
+    @DisplayName("Lấy lịch sử đơn hàng thất bại khi chưa đăng nhập (401 Unauthorized)")
+    void getUserOrders_AsGuest_Returns401Unauthorized() throws Exception {
+        mockMvc.perform(get("/api/orders"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Lấy lịch sử đơn hàng thất bại khi tham số phân trang không hợp lệ (400 Bad Request)")
+    @WithMockUser(username = "customer@example.com", roles = "USER")
+    void getUserOrders_WhenInvalidPagination_Returns400BadRequest() throws Exception {
+        mockMvc.perform(get("/api/orders")
+                        .param("page", "-1")
+                        .param("size", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Dữ liệu không hợp lệ"));
     }
 }
