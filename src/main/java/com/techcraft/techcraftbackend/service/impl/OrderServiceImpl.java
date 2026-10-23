@@ -2,6 +2,7 @@ package com.techcraft.techcraftbackend.service.impl;
 
 import com.techcraft.techcraftbackend.dto.request.CreateOrderItemRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateOrderStatusRequest;
 import com.techcraft.techcraftbackend.dto.response.OrderResponse;
 import com.techcraft.techcraftbackend.entity.*;
 import com.techcraft.techcraftbackend.enums.OrderStatus;
@@ -63,6 +64,68 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId));
 
         return processCancelOrder(user, orderId);
+    }
+
+    @Override
+    public OrderResponse updateOrderStatus(UUID orderId, UpdateOrderStatusRequest request) {
+        if (orderId == null) {
+            throw new BadRequestException("Mã đơn hàng không được để trống.");
+        }
+
+        if (request == null || request.getStatus() == null) {
+            throw new BadRequestException("Trạng thái đơn hàng không được để trống.");
+        }
+
+        Order order = orderRepository.findByIdWithDetails(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng với ID: " + orderId));
+
+        OrderStatus currentStatus = order.getStatus();
+        OrderStatus newStatus = request.getStatus();
+
+        if (currentStatus == newStatus) {
+            throw new BadRequestException(String.format("Đơn hàng hiện tại đã ở trạng thái %s.", currentStatus));
+        }
+
+        validateStatusTransition(currentStatus, newStatus);
+
+        if (newStatus == OrderStatus.CANCELLED) {
+            restoreOrderStock(order);
+        }
+
+        order.setStatus(newStatus);
+        Order savedOrder = orderRepository.save(order);
+
+        return orderMapper.toResponse(savedOrder);
+    }
+
+    private void validateStatusTransition(OrderStatus currentStatus, OrderStatus newStatus) {
+        if (currentStatus == OrderStatus.CANCELLED) {
+            throw new BadRequestException("Không thể thay đổi trạng thái của đơn hàng đã bị hủy.");
+        }
+
+        if (currentStatus == OrderStatus.DELIVERED) {
+            throw new BadRequestException("Không thể thay đổi trạng thái của đơn hàng đã giao thành công.");
+        }
+
+        switch (currentStatus) {
+            case PENDING:
+                if (newStatus != OrderStatus.CONFIRMED && newStatus != OrderStatus.CANCELLED) {
+                    throw new BadRequestException("Đơn hàng đang chờ xử lý chỉ có thể chuyển sang CONFIRMED hoặc CANCELLED.");
+                }
+                break;
+            case CONFIRMED:
+                if (newStatus != OrderStatus.SHIPPING && newStatus != OrderStatus.CANCELLED) {
+                    throw new BadRequestException("Đơn hàng đã xác nhận chỉ có thể chuyển sang SHIPPING hoặc CANCELLED.");
+                }
+                break;
+            case SHIPPING:
+                if (newStatus != OrderStatus.DELIVERED && newStatus != OrderStatus.CANCELLED) {
+                    throw new BadRequestException("Đơn hàng đang giao chỉ có thể chuyển sang DELIVERED hoặc CANCELLED.");
+                }
+                break;
+            default:
+                throw new BadRequestException("Trạng thái chuyển đổi không hợp lệ.");
+        }
     }
 
     @Override

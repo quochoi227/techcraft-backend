@@ -2,6 +2,7 @@ package com.techcraft.techcraftbackend.controller;
 
 import com.techcraft.techcraftbackend.dto.request.CreateOrderItemRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateOrderStatusRequest;
 import com.techcraft.techcraftbackend.dto.response.OrderItemResponse;
 import com.techcraft.techcraftbackend.dto.response.OrderResponse;
 import com.techcraft.techcraftbackend.enums.OrderStatus;
@@ -236,5 +237,116 @@ class OrderControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("Không thể hủy đơn hàng đang trong quá trình vận chuyển."));
+    }
+
+    @Test
+    @DisplayName("Admin cập nhật trạng thái đơn hàng thành công (200 OK)")
+    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
+    void updateOrderStatus_AsAdmin_Returns200Ok() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        OrderResponse expectedResponse = OrderResponse.builder()
+                .id(orderId)
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        when(orderService.updateOrderStatus(eq(orderId), any(UpdateOrderStatusRequest.class)))
+                .thenReturn(expectedResponse);
+
+        mockMvc.perform(put("/api/admin/orders/{id}/status", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Cập nhật trạng thái đơn hàng thành công!"))
+                .andExpect(jsonPath("$.data.id").value(orderId.toString()))
+                .andExpect(jsonPath("$.data.status").value("CONFIRMED"));
+    }
+
+    @Test
+    @DisplayName("Admin cập nhật trạng thái đơn hàng thất bại khi là User thường (403 Forbidden)")
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    void updateOrderStatus_AsUser_Returns403Forbidden() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        mockMvc.perform(put("/api/admin/orders/{id}/status", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Admin cập nhật trạng thái đơn hàng thất bại khi chưa đăng nhập (401 Unauthorized)")
+    void updateOrderStatus_AsGuest_Returns401Unauthorized() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        mockMvc.perform(put("/api/admin/orders/{id}/status", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Admin cập nhật trạng thái đơn hàng thất bại khi body không hợp lệ (400 Bad Request)")
+    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
+    void updateOrderStatus_WhenInvalidBody_Returns400BadRequest() throws Exception {
+        UUID orderId = UUID.randomUUID();
+
+        mockMvc.perform(put("/api/admin/orders/{id}/status", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Dữ liệu không hợp lệ"))
+                .andExpect(jsonPath("$.data.status").value("Trạng thái đơn hàng không được để trống"));
+    }
+
+    @Test
+    @DisplayName("Admin cập nhật trạng thái đơn hàng thất bại khi không tìm thấy đơn (404 Not Found)")
+    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
+    void updateOrderStatus_WhenOrderNotFound_Returns404NotFound() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        when(orderService.updateOrderStatus(eq(orderId), any(UpdateOrderStatusRequest.class)))
+                .thenThrow(new ResourceNotFoundException("Không tìm thấy đơn hàng với ID: " + orderId));
+
+        mockMvc.perform(put("/api/admin/orders/{id}/status", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy đơn hàng với ID: " + orderId));
+    }
+
+    @Test
+    @DisplayName("Admin cập nhật trạng thái đơn hàng thất bại khi vi phạm chuyển đổi trạng thái (400 Bad Request)")
+    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
+    void updateOrderStatus_WhenBadRequestFromService_Returns400BadRequest() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.DELIVERED)
+                .build();
+
+        when(orderService.updateOrderStatus(eq(orderId), any(UpdateOrderStatusRequest.class)))
+                .thenThrow(new BadRequestException("Đơn hàng đang chờ xử lý chỉ có thể chuyển sang CONFIRMED hoặc CANCELLED."));
+
+        mockMvc.perform(put("/api/admin/orders/{id}/status", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Đơn hàng đang chờ xử lý chỉ có thể chuyển sang CONFIRMED hoặc CANCELLED."));
     }
 }
