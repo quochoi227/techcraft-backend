@@ -2,9 +2,15 @@ package com.techcraft.techcraftbackend.service;
 
 import com.techcraft.techcraftbackend.dto.request.CreateOrderItemRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderRequest;
+import com.techcraft.techcraftbackend.dto.request.OrderFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdateOrderStatusRequest;
 import com.techcraft.techcraftbackend.dto.response.OrderItemResponse;
 import com.techcraft.techcraftbackend.dto.response.OrderResponse;
+import com.techcraft.techcraftbackend.dto.response.PageResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import com.techcraft.techcraftbackend.entity.*;
 import com.techcraft.techcraftbackend.enums.OrderStatus;
 import com.techcraft.techcraftbackend.enums.PaymentMethod;
@@ -1198,5 +1204,155 @@ class OrderServiceTest {
 
         assertThrows(BadRequestException.class, () ->
                 orderService.updateOrderStatus(UUID.randomUUID(), UpdateOrderStatusRequest.builder().status(null).build()));
+    }
+
+    // ==========================================
+    // Tests for getUserOrders (Pagination & Filter)
+    // ==========================================
+
+    @Test
+    @DisplayName("Lấy lịch sử đơn hàng thành công khi không lọc trạng thái (status = null)")
+    void getUserOrders_Success_WhenNoStatusFilter() {
+        Order order1 = Order.builder().id(UUID.randomUUID()).user(sampleUser).status(OrderStatus.PENDING).build();
+        Order order2 = Order.builder().id(UUID.randomUUID()).user(sampleUser).status(OrderStatus.DELIVERED).build();
+        List<Order> orderList = List.of(order1, order2);
+        Page<Order> orderPage = new PageImpl<>(orderList, PageRequest.of(0, 10), 2);
+
+        OrderResponse resp1 = OrderResponse.builder().id(order1.getId()).status(OrderStatus.PENDING).build();
+        OrderResponse resp2 = OrderResponse.builder().id(order2.getId()).status(OrderStatus.DELIVERED).build();
+
+        OrderFilterRequest filter = OrderFilterRequest.builder()
+                .page(0)
+                .size(10)
+                .build();
+
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+        when(userRepository.existsById(sampleUser.getId())).thenReturn(true);
+        when(orderRepository.findByUserId(eq(sampleUser.getId()), any(Pageable.class))).thenReturn(orderPage);
+        when(orderMapper.toResponse(order1)).thenReturn(resp1);
+        when(orderMapper.toResponse(order2)).thenReturn(resp2);
+
+        PageResponse<OrderResponse> result = orderService.getUserOrders("customer@example.com", filter);
+
+        assertNotNull(result);
+        assertEquals(2, result.getContent().size());
+        assertEquals(2, result.getTotalElements());
+        assertEquals(0, result.getPage());
+        assertEquals(10, result.getSize());
+        assertFalse(result.isEmpty());
+        verify(orderRepository).findByUserId(eq(sampleUser.getId()), any(Pageable.class));
+        verify(orderRepository, never()).findByUserIdAndStatus(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("Lấy lịch sử đơn hàng thành công khi có lọc theo trạng thái (status != null)")
+    void getUserOrders_Success_WhenWithStatusFilter() {
+        Order order = Order.builder().id(UUID.randomUUID()).user(sampleUser).status(OrderStatus.PENDING).build();
+        Page<Order> orderPage = new PageImpl<>(List.of(order), PageRequest.of(0, 5), 1);
+        OrderResponse resp = OrderResponse.builder().id(order.getId()).status(OrderStatus.PENDING).build();
+
+        OrderFilterRequest filter = OrderFilterRequest.builder()
+                .status(OrderStatus.PENDING)
+                .page(0)
+                .size(5)
+                .build();
+
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+        when(userRepository.existsById(sampleUser.getId())).thenReturn(true);
+        when(orderRepository.findByUserIdAndStatus(eq(sampleUser.getId()), eq(OrderStatus.PENDING), any(Pageable.class)))
+                .thenReturn(orderPage);
+        when(orderMapper.toResponse(order)).thenReturn(resp);
+
+        PageResponse<OrderResponse> result = orderService.getUserOrders("customer@example.com", filter);
+
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        assertEquals(OrderStatus.PENDING, result.getContent().get(0).getStatus());
+        verify(orderRepository).findByUserIdAndStatus(eq(sampleUser.getId()), eq(OrderStatus.PENDING), any(Pageable.class));
+        verify(orderRepository, never()).findByUserId(any(), any());
+    }
+
+    @Test
+    @DisplayName("Lấy lịch sử đơn hàng thành công khi user chưa có đơn hàng nào")
+    void getUserOrders_Success_WhenNoOrdersFound() {
+        Page<Order> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+
+        OrderFilterRequest filter = OrderFilterRequest.builder().build();
+
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+        when(userRepository.existsById(sampleUser.getId())).thenReturn(true);
+        when(orderRepository.findByUserId(eq(sampleUser.getId()), any(Pageable.class))).thenReturn(emptyPage);
+
+        PageResponse<OrderResponse> result = orderService.getUserOrders("customer@example.com", filter);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+        assertEquals(0, result.getTotalElements());
+    }
+
+    @Test
+    @DisplayName("Lấy lịch sử đơn hàng trực tiếp qua userId thành công")
+    void getUserOrders_Success_ByUserId() {
+        UUID userId = sampleUser.getId();
+        Page<Order> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(orderRepository.findByUserId(eq(userId), any(Pageable.class))).thenReturn(emptyPage);
+
+        PageResponse<OrderResponse> result = orderService.getUserOrders(userId, null);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+        verify(orderRepository).findByUserId(eq(userId), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("Lấy lịch sử đơn hàng thành công với các trường sắp xếp tùy chỉnh")
+    void getUserOrders_Success_WithCustomSorting() {
+        UUID userId = sampleUser.getId();
+        Page<Order> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+
+        when(userRepository.existsById(userId)).thenReturn(true);
+        when(orderRepository.findByUserId(eq(userId), any(Pageable.class))).thenReturn(emptyPage);
+
+        OrderFilterRequest filter1 = OrderFilterRequest.builder().sortBy("total_amount").sortDir("asc").build();
+        orderService.getUserOrders(userId, filter1);
+
+        OrderFilterRequest filter2 = OrderFilterRequest.builder().sortBy("status").sortDir("desc").build();
+        orderService.getUserOrders(userId, filter2);
+
+        OrderFilterRequest filter3 = OrderFilterRequest.builder().sortBy("updated_at").sortDir("asc").build();
+        orderService.getUserOrders(userId, filter3);
+
+        OrderFilterRequest filter4 = OrderFilterRequest.builder().sortBy("invalid_column").sortDir("asc").build();
+        orderService.getUserOrders(userId, filter4);
+
+        verify(orderRepository, times(4)).findByUserId(eq(userId), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("Lấy lịch sử đơn hàng thất bại khi không tìm thấy user theo email (404 Not Found)")
+    void getUserOrders_ThrowsNotFound_WhenEmailNotFound() {
+        when(userRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                orderService.getUserOrders("unknown@example.com", new OrderFilterRequest()));
+    }
+
+    @Test
+    @DisplayName("Lấy lịch sử đơn hàng thất bại khi không tìm thấy user theo userId (404 Not Found)")
+    void getUserOrders_ThrowsNotFound_WhenUserIdNotFound() {
+        UUID userId = UUID.randomUUID();
+        when(userRepository.existsById(userId)).thenReturn(false);
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                orderService.getUserOrders(userId, new OrderFilterRequest()));
+    }
+
+    @Test
+    @DisplayName("Lấy lịch sử đơn hàng thất bại khi userId là null (400 Bad Request)")
+    void getUserOrders_ThrowsBadRequest_WhenUserIdIsNull() {
+        assertThrows(BadRequestException.class, () ->
+                orderService.getUserOrders((UUID) null, new OrderFilterRequest()));
     }
 }

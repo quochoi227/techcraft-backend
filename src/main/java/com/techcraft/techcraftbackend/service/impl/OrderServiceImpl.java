@@ -2,8 +2,10 @@ package com.techcraft.techcraftbackend.service.impl;
 
 import com.techcraft.techcraftbackend.dto.request.CreateOrderItemRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderRequest;
+import com.techcraft.techcraftbackend.dto.request.OrderFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdateOrderStatusRequest;
 import com.techcraft.techcraftbackend.dto.response.OrderResponse;
+import com.techcraft.techcraftbackend.dto.response.PageResponse;
 import com.techcraft.techcraftbackend.entity.*;
 import com.techcraft.techcraftbackend.enums.OrderStatus;
 import com.techcraft.techcraftbackend.enums.PaymentMethod;
@@ -15,6 +17,10 @@ import com.techcraft.techcraftbackend.mapper.OrderMapper;
 import com.techcraft.techcraftbackend.repository.*;
 import com.techcraft.techcraftbackend.service.OrderService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -96,6 +102,61 @@ public class OrderServiceImpl implements OrderService {
         Order savedOrder = orderRepository.save(order);
 
         return orderMapper.toResponse(savedOrder);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<OrderResponse> getUserOrders(String email, OrderFilterRequest filter) {
+        User user = userRepository.findByEmail(email != null ? email.toLowerCase().trim() : null)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
+
+        return getUserOrders(user.getId(), filter);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<OrderResponse> getUserOrders(UUID userId, OrderFilterRequest filter) {
+        if (userId == null) {
+            throw new BadRequestException("Mã người dùng không được để trống.");
+        }
+
+        if (!userRepository.existsById(userId)) {
+            throw new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId);
+        }
+
+        if (filter == null) {
+            filter = new OrderFilterRequest();
+        }
+
+        Pageable pageable = createPageable(filter);
+
+        Page<Order> orderPage = (filter.getStatus() != null)
+                ? orderRepository.findByUserIdAndStatus(userId, filter.getStatus(), pageable)
+                : orderRepository.findByUserId(userId, pageable);
+
+        return PageResponse.from(orderPage, orderMapper::toResponse);
+    }
+
+    private Pageable createPageable(OrderFilterRequest filter) {
+        String sortBy = resolveSortProperty(filter.getSortBy());
+        Sort.Direction direction = "asc".equalsIgnoreCase(filter.getSortDir())
+                ? Sort.Direction.ASC
+                : Sort.Direction.DESC;
+
+        return PageRequest.of(filter.getPage(), filter.getSize(), Sort.by(direction, sortBy));
+    }
+
+    private String resolveSortProperty(String sortBy) {
+        if (sortBy == null || sortBy.isBlank()) {
+            return "createdAt";
+        }
+        return switch (sortBy.trim()) {
+            case "createdAt", "created_at" -> "createdAt";
+            case "updatedAt", "updated_at" -> "updatedAt";
+            case "totalAmount", "total_amount" -> "totalAmount";
+            case "status" -> "status";
+            default -> "createdAt";
+        };
     }
 
     private void validateStatusTransition(OrderStatus currentStatus, OrderStatus newStatus) {

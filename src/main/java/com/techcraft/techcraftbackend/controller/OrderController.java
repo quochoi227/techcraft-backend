@@ -2,8 +2,10 @@ package com.techcraft.techcraftbackend.controller;
 
 import com.techcraft.techcraftbackend.dto.ApiResponse;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderRequest;
+import com.techcraft.techcraftbackend.dto.request.OrderFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdateOrderStatusRequest;
 import com.techcraft.techcraftbackend.dto.response.OrderResponse;
+import com.techcraft.techcraftbackend.dto.response.PageResponse;
 import com.techcraft.techcraftbackend.exception.UnauthorizedException;
 import com.techcraft.techcraftbackend.service.OrderService;
 import jakarta.validation.Valid;
@@ -22,6 +24,19 @@ import java.util.UUID;
 public class OrderController {
 
     private final OrderService orderService;
+
+    @GetMapping("/orders")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<PageResponse<OrderResponse>>> getUserOrders(
+            Principal principal,
+            @Valid @ModelAttribute OrderFilterRequest filter) {
+        if (principal == null || principal.getName() == null) {
+            throw new UnauthorizedException("Vui lòng đăng nhập để thực hiện chức năng này.");
+        }
+
+        PageResponse<OrderResponse> response = orderService.getUserOrders(principal.getName(), filter);
+        return ResponseEntity.ok(ApiResponse.success("Lấy lịch sử đơn hàng thành công!", response));
+    }
 
     @PostMapping("/orders")
     @PreAuthorize("isAuthenticated()")

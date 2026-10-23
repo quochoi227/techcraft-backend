@@ -1,6 +1,9 @@
 package com.techcraft.techcraftbackend.repository;
 
 import com.techcraft.techcraftbackend.entity.Order;
+import com.techcraft.techcraftbackend.enums.OrderStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
@@ -15,6 +18,10 @@ import java.util.UUID;
 public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecificationExecutor<Order> {
 
     List<Order> findByUserIdOrderByCreatedAtDesc(UUID userId);
+
+    Page<Order> findByUserId(UUID userId, Pageable pageable);
+
+    Page<Order> findByUserIdAndStatus(UUID userId, OrderStatus status, Pageable pageable);
 
     @Query("SELECT o FROM Order o " +
            "JOIN FETCH o.user u " +
