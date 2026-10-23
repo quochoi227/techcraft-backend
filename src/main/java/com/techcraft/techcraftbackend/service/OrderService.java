@@ -1,5 +1,6 @@
 package com.techcraft.techcraftbackend.service;
 
+import com.techcraft.techcraftbackend.dto.request.AdminOrderFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderRequest;
 import com.techcraft.techcraftbackend.dto.request.OrderFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdateOrderStatusRequest;
@@ -24,6 +25,8 @@ public interface OrderService {
     PageResponse<OrderResponse> getUserOrders(String email, OrderFilterRequest filter);
 
     PageResponse<OrderResponse> getUserOrders(UUID userId, OrderFilterRequest filter);
+
+    PageResponse<OrderResponse> getAllOrders(AdminOrderFilterRequest filter);
 
     void restoreOrderStock(Order order);
 }

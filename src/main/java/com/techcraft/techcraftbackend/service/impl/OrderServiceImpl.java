@@ -1,5 +1,6 @@
 package com.techcraft.techcraftbackend.service.impl;
 
+import com.techcraft.techcraftbackend.dto.request.AdminOrderFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderItemRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderRequest;
 import com.techcraft.techcraftbackend.dto.request.OrderFilterRequest;
@@ -16,11 +17,13 @@ import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
 import com.techcraft.techcraftbackend.mapper.OrderMapper;
 import com.techcraft.techcraftbackend.repository.*;
 import com.techcraft.techcraftbackend.service.OrderService;
+import com.techcraft.techcraftbackend.specification.OrderSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -137,13 +140,37 @@ public class OrderServiceImpl implements OrderService {
         return PageResponse.from(orderPage, orderMapper::toResponse);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PageResponse<OrderResponse> getAllOrders(AdminOrderFilterRequest filter) {
+        if (filter == null) {
+            filter = new AdminOrderFilterRequest();
+        }
+
+        Pageable pageable = createPageable(filter.getPage(), filter.getSize(), filter.getSortBy(), filter.getSortDir());
+
+        Specification<Order> spec = OrderSpecification.filter(
+                filter.getStatus(),
+                filter.getEffectiveSearch(),
+                filter.getPaymentMethod()
+        );
+
+        Page<Order> orderPage = orderRepository.findAll(spec, pageable);
+
+        return PageResponse.from(orderPage, orderMapper::toResponse);
+    }
+
     private Pageable createPageable(OrderFilterRequest filter) {
-        String sortBy = resolveSortProperty(filter.getSortBy());
-        Sort.Direction direction = "asc".equalsIgnoreCase(filter.getSortDir())
+        return createPageable(filter.getPage(), filter.getSize(), filter.getSortBy(), filter.getSortDir());
+    }
+
+    private Pageable createPageable(int page, int size, String sortBy, String sortDir) {
+        String resolvedSortProperty = resolveSortProperty(sortBy);
+        Sort.Direction direction = "asc".equalsIgnoreCase(sortDir)
                 ? Sort.Direction.ASC
                 : Sort.Direction.DESC;
 
-        return PageRequest.of(filter.getPage(), filter.getSize(), Sort.by(direction, sortBy));
+        return PageRequest.of(page, size, Sort.by(direction, resolvedSortProperty));
     }
 
     private String resolveSortProperty(String sortBy) {

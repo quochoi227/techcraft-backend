@@ -1,5 +1,6 @@
 package com.techcraft.techcraftbackend.service;
 
+import com.techcraft.techcraftbackend.dto.request.AdminOrderFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderItemRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderRequest;
 import com.techcraft.techcraftbackend.dto.request.OrderFilterRequest;
@@ -11,6 +12,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import com.techcraft.techcraftbackend.entity.*;
 import com.techcraft.techcraftbackend.enums.OrderStatus;
 import com.techcraft.techcraftbackend.enums.PaymentMethod;
@@ -1354,5 +1356,119 @@ class OrderServiceTest {
     void getUserOrders_ThrowsBadRequest_WhenUserIdIsNull() {
         assertThrows(BadRequestException.class, () ->
                 orderService.getUserOrders((UUID) null, new OrderFilterRequest()));
+    }
+
+    @Test
+    @DisplayName("Admin lấy tất cả đơn hàng thành công với phân trang mặc định")
+    void getAllOrders_Success_DefaultPagination() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .user(sampleUser)
+                .status(OrderStatus.PENDING)
+                .paymentMethod(PaymentMethod.COD)
+                .shippingAddress("123 Can Tho")
+                .totalAmount(new BigDecimal("15000000"))
+                .build();
+        Page<Order> orderPage = new PageImpl<>(List.of(order), PageRequest.of(0, 10), 1);
+        OrderResponse resp = OrderResponse.builder()
+                .id(order.getId())
+                .status(OrderStatus.PENDING)
+                .build();
+
+        when(orderRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(orderPage);
+        when(orderMapper.toResponse(order)).thenReturn(resp);
+
+        AdminOrderFilterRequest filter = AdminOrderFilterRequest.builder().build();
+        PageResponse<OrderResponse> result = orderService.getAllOrders(filter);
+
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        assertEquals(order.getId(), result.getContent().get(0).getId());
+        verify(orderRepository).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("Admin lấy tất cả đơn hàng thành công với bộ lọc trạng thái và từ khóa tìm kiếm")
+    void getAllOrders_Success_WithFilterAndKeyword() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .user(sampleUser)
+                .status(OrderStatus.CONFIRMED)
+                .paymentMethod(PaymentMethod.COD)
+                .shippingAddress("123 Can Tho")
+                .totalAmount(new BigDecimal("20000000"))
+                .build();
+        Page<Order> orderPage = new PageImpl<>(List.of(order), PageRequest.of(0, 10), 1);
+        OrderResponse resp = OrderResponse.builder()
+                .id(order.getId())
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        when(orderRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(orderPage);
+        when(orderMapper.toResponse(order)).thenReturn(resp);
+
+        AdminOrderFilterRequest filter = AdminOrderFilterRequest.builder()
+                .status(OrderStatus.CONFIRMED)
+                .search("customer@example.com")
+                .paymentMethod(PaymentMethod.COD)
+                .build();
+        PageResponse<OrderResponse> result = orderService.getAllOrders(filter);
+
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        assertEquals(OrderStatus.CONFIRMED, result.getContent().get(0).getStatus());
+        verify(orderRepository).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("Admin lấy tất cả đơn hàng thành công khi filter là null (áp dụng cấu hình mặc định)")
+    void getAllOrders_Success_WhenFilterIsNull() {
+        Page<Order> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+        when(orderRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(emptyPage);
+
+        PageResponse<OrderResponse> result = orderService.getAllOrders(null);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+        verify(orderRepository).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("Admin lấy tất cả đơn hàng thành công khi không có đơn hàng nào khớp điều kiện")
+    void getAllOrders_Success_WhenNoOrdersMatch() {
+        Page<Order> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+        when(orderRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(emptyPage);
+
+        AdminOrderFilterRequest filter = AdminOrderFilterRequest.builder()
+                .status(OrderStatus.CANCELLED)
+                .keyword("nonexistent")
+                .build();
+        PageResponse<OrderResponse> result = orderService.getAllOrders(filter);
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+        assertEquals(0, result.getTotalElements());
+        verify(orderRepository).findAll(any(Specification.class), any(Pageable.class));
+    }
+
+    @Test
+    @DisplayName("Admin lấy tất cả đơn hàng thành công với các trường sắp xếp tùy chỉnh")
+    void getAllOrders_Success_WithCustomSorting() {
+        Page<Order> emptyPage = new PageImpl<>(Collections.emptyList(), PageRequest.of(0, 10), 0);
+        when(orderRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(emptyPage);
+
+        AdminOrderFilterRequest filter1 = AdminOrderFilterRequest.builder().sortBy("total_amount").sortDir("asc").build();
+        orderService.getAllOrders(filter1);
+
+        AdminOrderFilterRequest filter2 = AdminOrderFilterRequest.builder().sortBy("status").sortDir("desc").build();
+        orderService.getAllOrders(filter2);
+
+        AdminOrderFilterRequest filter3 = AdminOrderFilterRequest.builder().sortBy("updated_at").sortDir("asc").build();
+        orderService.getAllOrders(filter3);
+
+        AdminOrderFilterRequest filter4 = AdminOrderFilterRequest.builder().sortBy("invalid_column").sortDir("asc").build();
+        orderService.getAllOrders(filter4);
+
+        verify(orderRepository, times(4)).findAll(any(Specification.class), any(Pageable.class));
     }
 }
