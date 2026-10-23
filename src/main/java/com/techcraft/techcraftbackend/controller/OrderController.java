@@ -1,6 +1,7 @@
 package com.techcraft.techcraftbackend.controller;
 
 import com.techcraft.techcraftbackend.dto.ApiResponse;
+import com.techcraft.techcraftbackend.dto.request.AdminOrderFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderRequest;
 import com.techcraft.techcraftbackend.dto.request.OrderFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdateOrderStatusRequest;
@@ -68,6 +69,14 @@ public class OrderController {
 
         OrderResponse response = orderService.cancelOrder(principal.getName(), id);
         return ResponseEntity.ok(ApiResponse.success("Hủy đơn hàng thành công!", response));
+    }
+
+    @GetMapping({"/admin/orders", "/orders/admin"})
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<PageResponse<OrderResponse>>> getAllOrders(
+            @Valid @ModelAttribute AdminOrderFilterRequest filter) {
+        PageResponse<OrderResponse> response = orderService.getAllOrders(filter);
+        return ResponseEntity.ok(ApiResponse.success("Lấy danh sách tất cả đơn hàng thành công!", response));
     }
 
     @PutMapping({"/admin/orders/{id}/status", "/orders/{id}/status"})

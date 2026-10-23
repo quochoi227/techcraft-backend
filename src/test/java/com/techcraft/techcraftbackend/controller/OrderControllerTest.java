@@ -1,5 +1,6 @@
 package com.techcraft.techcraftbackend.controller;
 
+import com.techcraft.techcraftbackend.dto.request.AdminOrderFilterRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderItemRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderRequest;
 import com.techcraft.techcraftbackend.dto.request.OrderFilterRequest;
@@ -433,6 +434,68 @@ class OrderControllerTest {
     @WithMockUser(username = "customer@example.com", roles = "USER")
     void getUserOrders_WhenInvalidPagination_Returns400BadRequest() throws Exception {
         mockMvc.perform(get("/api/orders")
+                        .param("page", "-1")
+                        .param("size", "0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Dữ liệu không hợp lệ"));
+    }
+
+    @Test
+    @DisplayName("Admin lấy tất cả đơn hàng thành công (200 OK)")
+    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
+    void getAllOrders_AsAdmin_Returns200Ok() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        OrderResponse orderResponse = OrderResponse.builder()
+                .id(orderId)
+                .status(OrderStatus.PENDING)
+                .build();
+
+        PageResponse<OrderResponse> pageResponse = PageResponse.<OrderResponse>builder()
+                .content(List.of(orderResponse))
+                .page(0)
+                .size(10)
+                .totalElements(1)
+                .totalPages(1)
+                .first(true)
+                .last(true)
+                .empty(false)
+                .build();
+
+        when(orderService.getAllOrders(any(AdminOrderFilterRequest.class))).thenReturn(pageResponse);
+
+        mockMvc.perform(get("/api/admin/orders")
+                        .param("status", "PENDING")
+                        .param("search", "customer")
+                        .param("page", "0")
+                        .param("size", "10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Lấy danh sách tất cả đơn hàng thành công!"))
+                .andExpect(jsonPath("$.data.content[0].id").value(orderId.toString()))
+                .andExpect(jsonPath("$.data.content[0].status").value("PENDING"));
+    }
+
+    @Test
+    @DisplayName("Admin lấy tất cả đơn hàng thất bại khi user thường gọi (403 Forbidden)")
+    @WithMockUser(username = "customer@example.com", roles = "USER")
+    void getAllOrders_AsUser_Returns403Forbidden() throws Exception {
+        mockMvc.perform(get("/api/admin/orders"))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Admin lấy tất cả đơn hàng thất bại khi khách chưa đăng nhập (401 Unauthorized)")
+    void getAllOrders_AsGuest_Returns401Unauthorized() throws Exception {
+        mockMvc.perform(get("/api/admin/orders"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Admin lấy tất cả đơn hàng thất bại khi tham số phân trang không hợp lệ (400 Bad Request)")
+    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
+    void getAllOrders_WhenInvalidPagination_Returns400BadRequest() throws Exception {
+        mockMvc.perform(get("/api/admin/orders")
                         .param("page", "-1")
                         .param("size", "0"))
                 .andExpect(status().isBadRequest())
