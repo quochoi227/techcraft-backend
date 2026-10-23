@@ -2,6 +2,7 @@ package com.techcraft.techcraftbackend.service;
 
 import com.techcraft.techcraftbackend.dto.request.CreateOrderItemRequest;
 import com.techcraft.techcraftbackend.dto.request.CreateOrderRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateOrderStatusRequest;
 import com.techcraft.techcraftbackend.dto.response.OrderItemResponse;
 import com.techcraft.techcraftbackend.dto.response.OrderResponse;
 import com.techcraft.techcraftbackend.entity.*;
@@ -824,5 +825,378 @@ class OrderServiceTest {
         BadRequestException ex = assertThrows(BadRequestException.class, () ->
                 orderService.cancelOrder("customer@example.com", order.getId()));
         assertEquals("Không thể hủy đơn hàng khi đã được xác nhận.", ex.getMessage());
+    }
+
+    // ==========================================
+    // Tests for updateOrderStatus
+    // ==========================================
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thành công: PENDING sang CONFIRMED")
+    void updateOrderStatus_Success_WhenPendingToConfirmed() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.PENDING)
+                .build();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        OrderResponse expectedResponse = OrderResponse.builder()
+                .id(order.getId())
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderMapper.toResponse(any(Order.class))).thenReturn(expectedResponse);
+
+        OrderResponse response = orderService.updateOrderStatus(order.getId(), request);
+
+        assertNotNull(response);
+        assertEquals(OrderStatus.CONFIRMED, response.getStatus());
+        assertEquals(OrderStatus.CONFIRMED, order.getStatus());
+        verify(orderRepository).save(order);
+        verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thành công: CONFIRMED sang SHIPPING")
+    void updateOrderStatus_Success_WhenConfirmedToShipping() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.SHIPPING)
+                .build();
+
+        OrderResponse expectedResponse = OrderResponse.builder()
+                .id(order.getId())
+                .status(OrderStatus.SHIPPING)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderMapper.toResponse(any(Order.class))).thenReturn(expectedResponse);
+
+        OrderResponse response = orderService.updateOrderStatus(order.getId(), request);
+
+        assertNotNull(response);
+        assertEquals(OrderStatus.SHIPPING, response.getStatus());
+        assertEquals(OrderStatus.SHIPPING, order.getStatus());
+        verify(orderRepository).save(order);
+        verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thành công: SHIPPING sang DELIVERED")
+    void updateOrderStatus_Success_WhenShippingToDelivered() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.SHIPPING)
+                .build();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.DELIVERED)
+                .build();
+
+        OrderResponse expectedResponse = OrderResponse.builder()
+                .id(order.getId())
+                .status(OrderStatus.DELIVERED)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderMapper.toResponse(any(Order.class))).thenReturn(expectedResponse);
+
+        OrderResponse response = orderService.updateOrderStatus(order.getId(), request);
+
+        assertNotNull(response);
+        assertEquals(OrderStatus.DELIVERED, response.getStatus());
+        assertEquals(OrderStatus.DELIVERED, order.getStatus());
+        verify(orderRepository).save(order);
+        verify(productRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thành công: PENDING sang CANCELLED và tự động hoàn trả tồn kho")
+    void updateOrderStatus_Success_WhenPendingToCancelled_RestoresStock() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.PENDING)
+                .build();
+
+        OrderItem item = OrderItem.builder()
+                .order(order)
+                .product(sampleCpu)
+                .quantity(2)
+                .build();
+        order.addItem(item);
+
+        int initialStock = sampleCpu.getStockQuantity();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.CANCELLED)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderMapper.toResponse(any(Order.class))).thenReturn(OrderResponse.builder().id(order.getId()).status(OrderStatus.CANCELLED).build());
+
+        OrderResponse response = orderService.updateOrderStatus(order.getId(), request);
+
+        assertNotNull(response);
+        assertEquals(OrderStatus.CANCELLED, order.getStatus());
+        assertEquals(initialStock + 2, sampleCpu.getStockQuantity());
+        verify(productRepository).save(sampleCpu);
+        verify(orderRepository).save(order);
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thành công: CONFIRMED sang CANCELLED và hoàn tồn kho")
+    void updateOrderStatus_Success_WhenConfirmedToCancelled_RestoresStock() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        OrderItem item = OrderItem.builder()
+                .order(order)
+                .product(sampleCpu)
+                .quantity(1)
+                .build();
+        order.addItem(item);
+
+        int initialStock = sampleCpu.getStockQuantity();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.CANCELLED)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderMapper.toResponse(any(Order.class))).thenReturn(OrderResponse.builder().id(order.getId()).status(OrderStatus.CANCELLED).build());
+
+        OrderResponse response = orderService.updateOrderStatus(order.getId(), request);
+
+        assertNotNull(response);
+        assertEquals(OrderStatus.CANCELLED, order.getStatus());
+        assertEquals(initialStock + 1, sampleCpu.getStockQuantity());
+        verify(productRepository).save(sampleCpu);
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thành công: SHIPPING sang CANCELLED và hoàn tồn kho")
+    void updateOrderStatus_Success_WhenShippingToCancelled_RestoresStock() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.SHIPPING)
+                .build();
+
+        OrderItem item = OrderItem.builder()
+                .order(order)
+                .product(sampleCpu)
+                .quantity(1)
+                .build();
+        order.addItem(item);
+
+        int initialStock = sampleCpu.getStockQuantity();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.CANCELLED)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(orderMapper.toResponse(any(Order.class))).thenReturn(OrderResponse.builder().id(order.getId()).status(OrderStatus.CANCELLED).build());
+
+        OrderResponse response = orderService.updateOrderStatus(order.getId(), request);
+
+        assertNotNull(response);
+        assertEquals(OrderStatus.CANCELLED, order.getStatus());
+        assertEquals(initialStock + 1, sampleCpu.getStockQuantity());
+        verify(productRepository).save(sampleCpu);
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thất bại: Trạng thái mới trùng với trạng thái hiện tại (400 Bad Request)")
+    void updateOrderStatus_ThrowsBadRequest_WhenCurrentStatusEqualsNewStatus() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                orderService.updateOrderStatus(order.getId(), request));
+        assertEquals("Đơn hàng hiện tại đã ở trạng thái CONFIRMED.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thất bại: Đơn hàng đã bị hủy (CANCELLED) không thể thay đổi")
+    void updateOrderStatus_ThrowsBadRequest_WhenCurrentStatusIsCancelled() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.CANCELLED)
+                .build();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                orderService.updateOrderStatus(order.getId(), request));
+        assertEquals("Không thể thay đổi trạng thái của đơn hàng đã bị hủy.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thất bại: Đơn hàng đã giao thành công (DELIVERED) không thể thay đổi")
+    void updateOrderStatus_ThrowsBadRequest_WhenCurrentStatusIsDelivered() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.DELIVERED)
+                .build();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.CANCELLED)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                orderService.updateOrderStatus(order.getId(), request));
+        assertEquals("Không thể thay đổi trạng thái của đơn hàng đã giao thành công.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thất bại: Nhảy cóc từ PENDING sang SHIPPING")
+    void updateOrderStatus_ThrowsBadRequest_WhenPendingToShipping() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.PENDING)
+                .build();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.SHIPPING)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                orderService.updateOrderStatus(order.getId(), request));
+        assertEquals("Đơn hàng đang chờ xử lý chỉ có thể chuyển sang CONFIRMED hoặc CANCELLED.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thất bại: Nhảy cóc từ PENDING sang DELIVERED")
+    void updateOrderStatus_ThrowsBadRequest_WhenPendingToDelivered() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.PENDING)
+                .build();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.DELIVERED)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                orderService.updateOrderStatus(order.getId(), request));
+        assertEquals("Đơn hàng đang chờ xử lý chỉ có thể chuyển sang CONFIRMED hoặc CANCELLED.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thất bại: Quay ngược từ CONFIRMED về PENDING")
+    void updateOrderStatus_ThrowsBadRequest_WhenConfirmedToPending() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.PENDING)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                orderService.updateOrderStatus(order.getId(), request));
+        assertEquals("Đơn hàng đã xác nhận chỉ có thể chuyển sang SHIPPING hoặc CANCELLED.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thất bại: Nhảy cóc từ CONFIRMED sang DELIVERED")
+    void updateOrderStatus_ThrowsBadRequest_WhenConfirmedToDelivered() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.DELIVERED)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                orderService.updateOrderStatus(order.getId(), request));
+        assertEquals("Đơn hàng đã xác nhận chỉ có thể chuyển sang SHIPPING hoặc CANCELLED.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thất bại: Quay ngược từ SHIPPING về CONFIRMED")
+    void updateOrderStatus_ThrowsBadRequest_WhenShippingToConfirmed() {
+        Order order = Order.builder()
+                .id(UUID.randomUUID())
+                .status(OrderStatus.SHIPPING)
+                .build();
+
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(order.getId())).thenReturn(Optional.of(order));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                orderService.updateOrderStatus(order.getId(), request));
+        assertEquals("Đơn hàng đang giao chỉ có thể chuyển sang DELIVERED hoặc CANCELLED.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thất bại: Không tìm thấy đơn hàng (404 Not Found)")
+    void updateOrderStatus_ThrowsNotFound_WhenOrderDoesNotExist() {
+        UUID orderId = UUID.randomUUID();
+        UpdateOrderStatusRequest request = UpdateOrderStatusRequest.builder()
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        when(orderRepository.findByIdWithDetails(orderId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                orderService.updateOrderStatus(orderId, request));
+    }
+
+    @Test
+    @DisplayName("Cập nhật trạng thái thất bại: orderId hoặc request/status bị null")
+    void updateOrderStatus_ThrowsBadRequest_WhenOrderIdOrStatusIsNull() {
+        assertThrows(BadRequestException.class, () ->
+                orderService.updateOrderStatus(null, UpdateOrderStatusRequest.builder().status(OrderStatus.CONFIRMED).build()));
+
+        assertThrows(BadRequestException.class, () ->
+                orderService.updateOrderStatus(UUID.randomUUID(), null));
+
+        assertThrows(BadRequestException.class, () ->
+                orderService.updateOrderStatus(UUID.randomUUID(), UpdateOrderStatusRequest.builder().status(null).build()));
     }
 }

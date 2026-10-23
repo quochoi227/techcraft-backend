@@ -1,6 +1,7 @@
 package com.techcraft.techcraftbackend.service;
 
 import com.techcraft.techcraftbackend.dto.request.CreateOrderRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateOrderStatusRequest;
 import com.techcraft.techcraftbackend.dto.response.OrderResponse;
 import com.techcraft.techcraftbackend.entity.Order;
 
@@ -15,6 +16,8 @@ public interface OrderService {
     OrderResponse cancelOrder(String email, UUID orderId);
 
     OrderResponse cancelOrder(UUID userId, UUID orderId);
+
+    OrderResponse updateOrderStatus(UUID orderId, UpdateOrderStatusRequest request);
 
     void restoreOrderStock(Order order);
 }
