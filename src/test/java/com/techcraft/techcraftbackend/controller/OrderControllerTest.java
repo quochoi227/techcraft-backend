@@ -502,4 +502,84 @@ class OrderControllerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("Dữ liệu không hợp lệ"));
     }
+
+    @Test
+    @DisplayName("Lấy chi tiết đơn hàng thành công khi là chủ sở hữu (200 OK)")
+    @WithMockUser(username = "customer@example.com", roles = "USER")
+    void getOrderById_WhenOwner_ReturnsOk() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        OrderResponse orderResponse = OrderResponse.builder()
+                .id(orderId)
+                .status(OrderStatus.PENDING)
+                .shippingAddress("123 Can Tho")
+                .totalAmount(new BigDecimal("15000000"))
+                .build();
+
+        when(orderService.getOrderById(eq("customer@example.com"), eq(orderId))).thenReturn(orderResponse);
+
+        mockMvc.perform(get("/api/orders/{id}", orderId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Lấy thông tin chi tiết đơn hàng thành công!"))
+                .andExpect(jsonPath("$.data.id").value(orderId.toString()))
+                .andExpect(jsonPath("$.data.status").value("PENDING"));
+    }
+
+    @Test
+    @DisplayName("Admin lấy chi tiết đơn hàng thành công qua endpoint /admin/orders/{id} (200 OK)")
+    @WithMockUser(username = "admin@example.com", roles = "ADMIN")
+    void getOrderById_WhenAdminViaAdminPath_ReturnsOk() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        OrderResponse orderResponse = OrderResponse.builder()
+                .id(orderId)
+                .status(OrderStatus.CONFIRMED)
+                .shippingAddress("123 Can Tho")
+                .totalAmount(new BigDecimal("20000000"))
+                .build();
+
+        when(orderService.getOrderById(eq("admin@example.com"), eq(orderId))).thenReturn(orderResponse);
+
+        mockMvc.perform(get("/api/admin/orders/{id}", orderId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Lấy thông tin chi tiết đơn hàng thành công!"))
+                .andExpect(jsonPath("$.data.id").value(orderId.toString()))
+                .andExpect(jsonPath("$.data.status").value("CONFIRMED"));
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết đơn hàng thất bại khi không phải chủ sở hữu (403 Forbidden)")
+    @WithMockUser(username = "other@example.com", roles = "USER")
+    void getOrderById_WhenOtherUser_ReturnsForbidden() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        when(orderService.getOrderById(eq("other@example.com"), eq(orderId)))
+                .thenThrow(new AppException("Bạn không có quyền xem thông tin chi tiết đơn hàng này.", HttpStatus.FORBIDDEN));
+
+        mockMvc.perform(get("/api/orders/{id}", orderId))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Bạn không có quyền xem thông tin chi tiết đơn hàng này."));
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết đơn hàng thất bại khi chưa đăng nhập (401 Unauthorized)")
+    void getOrderById_WhenGuest_ReturnsUnauthorized() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        mockMvc.perform(get("/api/orders/{id}", orderId))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết đơn hàng thất bại khi không tìm thấy đơn hàng (404 Not Found)")
+    @WithMockUser(username = "customer@example.com", roles = "USER")
+    void getOrderById_WhenNotFound_ReturnsNotFound() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        when(orderService.getOrderById(eq("customer@example.com"), eq(orderId)))
+                .thenThrow(new ResourceNotFoundException("Không tìm thấy đơn hàng với ID: " + orderId));
+
+        mockMvc.perform(get("/api/orders/{id}", orderId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy đơn hàng với ID: " + orderId));
+    }
 }

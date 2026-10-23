@@ -1471,4 +1471,172 @@ class OrderServiceTest {
 
         verify(orderRepository, times(4)).findAll(any(Specification.class), any(Pageable.class));
     }
+
+    @Test
+    @DisplayName("Lấy chi tiết đơn hàng thành công khi người gọi là chủ sở hữu đơn hàng (Owner)")
+    void getOrderById_Success_WhenOwner() {
+        UUID orderId = UUID.randomUUID();
+        Order order = Order.builder()
+                .id(orderId)
+                .user(sampleUser)
+                .status(OrderStatus.PENDING)
+                .paymentMethod(PaymentMethod.COD)
+                .shippingAddress("123 Can Tho")
+                .totalAmount(new BigDecimal("15000000"))
+                .build();
+        OrderResponse resp = OrderResponse.builder()
+                .id(orderId)
+                .userId(sampleUser.getId())
+                .status(OrderStatus.PENDING)
+                .build();
+
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+        when(orderRepository.findByIdWithDetails(orderId)).thenReturn(Optional.of(order));
+        when(orderMapper.toResponse(order)).thenReturn(resp);
+
+        OrderResponse result = orderService.getOrderById("customer@example.com", orderId);
+
+        assertNotNull(result);
+        assertEquals(orderId, result.getId());
+        assertEquals(sampleUser.getId(), result.getUserId());
+        verify(orderRepository).findByIdWithDetails(orderId);
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết đơn hàng thành công khi người gọi là Admin (kể cả không phải chủ sở hữu)")
+    void getOrderById_Success_WhenAdmin() {
+        UUID orderId = UUID.randomUUID();
+        Order order = Order.builder()
+                .id(orderId)
+                .user(sampleUser) // order của sampleUser (ROLE_USER)
+                .status(OrderStatus.CONFIRMED)
+                .paymentMethod(PaymentMethod.COD)
+                .shippingAddress("123 Can Tho")
+                .totalAmount(new BigDecimal("25000000"))
+                .build();
+        OrderResponse resp = OrderResponse.builder()
+                .id(orderId)
+                .userId(sampleUser.getId())
+                .status(OrderStatus.CONFIRMED)
+                .build();
+
+        User adminUser = User.builder()
+                .id(UUID.randomUUID())
+                .email("admin@example.com")
+                .role(Role.ADMIN)
+                .build();
+
+        when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(adminUser));
+        when(orderRepository.findByIdWithDetails(orderId)).thenReturn(Optional.of(order));
+        when(orderMapper.toResponse(order)).thenReturn(resp);
+
+        OrderResponse result = orderService.getOrderById("admin@example.com", orderId);
+
+        assertNotNull(result);
+        assertEquals(orderId, result.getId());
+        verify(orderRepository).findByIdWithDetails(orderId);
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết đơn hàng thành công qua userId")
+    void getOrderById_Success_ByUserId() {
+        UUID orderId = UUID.randomUUID();
+        Order order = Order.builder()
+                .id(orderId)
+                .user(sampleUser)
+                .status(OrderStatus.PENDING)
+                .paymentMethod(PaymentMethod.COD)
+                .shippingAddress("123 Can Tho")
+                .totalAmount(new BigDecimal("15000000"))
+                .build();
+        OrderResponse resp = OrderResponse.builder()
+                .id(orderId)
+                .userId(sampleUser.getId())
+                .build();
+
+        when(userRepository.findById(sampleUser.getId())).thenReturn(Optional.of(sampleUser));
+        when(orderRepository.findByIdWithDetails(orderId)).thenReturn(Optional.of(order));
+        when(orderMapper.toResponse(order)).thenReturn(resp);
+
+        OrderResponse result = orderService.getOrderById(sampleUser.getId(), orderId);
+
+        assertNotNull(result);
+        assertEquals(orderId, result.getId());
+        verify(orderRepository).findByIdWithDetails(orderId);
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết đơn hàng thất bại khi không phải chủ sở hữu và không phải Admin (403 Forbidden)")
+    void getOrderById_ThrowsForbidden_WhenNotOwnerAndNotAdmin() {
+        UUID orderId = UUID.randomUUID();
+        Order order = Order.builder()
+                .id(orderId)
+                .user(sampleUser) // order thuộc về sampleUser
+                .status(OrderStatus.PENDING)
+                .build();
+
+        User anotherUser = User.builder()
+                .id(UUID.randomUUID())
+                .email("other@example.com")
+                .role(Role.USER)
+                .build();
+
+        when(userRepository.findByEmail("other@example.com")).thenReturn(Optional.of(anotherUser));
+        when(orderRepository.findByIdWithDetails(orderId)).thenReturn(Optional.of(order));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                orderService.getOrderById("other@example.com", orderId));
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
+        assertEquals("Bạn không có quyền xem thông tin chi tiết đơn hàng này.", ex.getMessage());
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết đơn hàng thất bại khi không tìm thấy đơn hàng (404 Not Found)")
+    void getOrderById_ThrowsNotFound_WhenOrderNotFound() {
+        UUID orderId = UUID.randomUUID();
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+        when(orderRepository.findByIdWithDetails(orderId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                orderService.getOrderById("customer@example.com", orderId));
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết đơn hàng thất bại khi orderId là null (400 Bad Request)")
+    void getOrderById_ThrowsBadRequest_WhenOrderIdIsNull() {
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+
+        assertThrows(BadRequestException.class, () ->
+                orderService.getOrderById("customer@example.com", null));
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết đơn hàng thất bại khi không tìm thấy user theo email (404 Not Found)")
+    void getOrderById_ThrowsNotFound_WhenUserNotFoundByEmail() {
+        UUID orderId = UUID.randomUUID();
+        when(userRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                orderService.getOrderById("unknown@example.com", orderId));
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết đơn hàng thất bại khi không tìm thấy user theo userId (404 Not Found)")
+    void getOrderById_ThrowsNotFound_WhenUserNotFoundByUserId() {
+        UUID userId = UUID.randomUUID();
+        UUID orderId = UUID.randomUUID();
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                orderService.getOrderById(userId, orderId));
+    }
+
+    @Test
+    @DisplayName("Lấy chi tiết đơn hàng thất bại khi userId là null (400 Bad Request)")
+    void getOrderById_ThrowsBadRequest_WhenUserIdIsNull() {
+        UUID orderId = UUID.randomUUID();
+        assertThrows(BadRequestException.class, () ->
+                orderService.getOrderById((UUID) null, orderId));
+    }
 }

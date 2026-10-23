@@ -28,5 +28,9 @@ public interface OrderService {
 
     PageResponse<OrderResponse> getAllOrders(AdminOrderFilterRequest filter);
 
+    OrderResponse getOrderById(String email, UUID orderId);
+
+    OrderResponse getOrderById(UUID userId, UUID orderId);
+
     void restoreOrderStock(Order order);
 }
