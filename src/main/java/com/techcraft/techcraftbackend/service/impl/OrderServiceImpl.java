@@ -160,6 +160,46 @@ public class OrderServiceImpl implements OrderService {
         return PageResponse.from(orderPage, orderMapper::toResponse);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public OrderResponse getOrderById(String email, UUID orderId) {
+        User user = userRepository.findByEmail(email != null ? email.toLowerCase().trim() : null)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
+
+        return processGetOrderById(user, orderId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public OrderResponse getOrderById(UUID userId, UUID orderId) {
+        if (userId == null) {
+            throw new BadRequestException("Mã người dùng không được để trống.");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với ID: " + userId));
+
+        return processGetOrderById(user, orderId);
+    }
+
+    private OrderResponse processGetOrderById(User user, UUID orderId) {
+        if (orderId == null) {
+            throw new BadRequestException("Mã đơn hàng không được để trống.");
+        }
+
+        Order order = orderRepository.findByIdWithDetails(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn hàng với ID: " + orderId));
+
+        boolean isOwner = order.getUser() != null && order.getUser().getId().equals(user.getId());
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+
+        if (!isOwner && !isAdmin) {
+            throw new AppException("Bạn không có quyền xem thông tin chi tiết đơn hàng này.", HttpStatus.FORBIDDEN);
+        }
+
+        return orderMapper.toResponse(order);
+    }
+
     private Pageable createPageable(OrderFilterRequest filter) {
         return createPageable(filter.getPage(), filter.getSize(), filter.getSortBy(), filter.getSortDir());
     }

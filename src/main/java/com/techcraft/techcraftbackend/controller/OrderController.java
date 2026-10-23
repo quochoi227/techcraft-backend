@@ -39,6 +39,19 @@ public class OrderController {
         return ResponseEntity.ok(ApiResponse.success("Lấy lịch sử đơn hàng thành công!", response));
     }
 
+    @GetMapping({"/orders/{id}", "/admin/orders/{id}"})
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<OrderResponse>> getOrderById(
+            Principal principal,
+            @PathVariable UUID id) {
+        if (principal == null || principal.getName() == null) {
+            throw new UnauthorizedException("Vui lòng đăng nhập để thực hiện chức năng này.");
+        }
+
+        OrderResponse response = orderService.getOrderById(principal.getName(), id);
+        return ResponseEntity.ok(ApiResponse.success("Lấy thông tin chi tiết đơn hàng thành công!", response));
+    }
+
     @PostMapping("/orders")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
