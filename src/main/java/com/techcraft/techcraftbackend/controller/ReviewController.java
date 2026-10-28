@@ -2,6 +2,7 @@ package com.techcraft.techcraftbackend.controller;
 
 import com.techcraft.techcraftbackend.dto.ApiResponse;
 import com.techcraft.techcraftbackend.dto.request.CreateReviewRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateReviewRequest;
 import com.techcraft.techcraftbackend.dto.response.ReviewResponse;
 import com.techcraft.techcraftbackend.exception.UnauthorizedException;
 import com.techcraft.techcraftbackend.service.ReviewService;
@@ -36,5 +37,20 @@ public class ReviewController {
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Đánh giá linh kiện thành công!", response));
+    }
+
+    @PutMapping("/products/{id}/reviews/{reviewId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<ReviewResponse>> updateProductReview(
+            Principal principal,
+            @PathVariable("id") UUID id,
+            @PathVariable("reviewId") UUID reviewId,
+            @Valid @RequestBody UpdateReviewRequest request) {
+        if (principal == null || principal.getName() == null) {
+            throw new UnauthorizedException("Vui lòng đăng nhập để thực hiện chức năng này.");
+        }
+
+        ReviewResponse response = reviewService.updateProductReview(principal.getName(), id, reviewId, request);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật đánh giá linh kiện thành công!", response));
     }
 }
