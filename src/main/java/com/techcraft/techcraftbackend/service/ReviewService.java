@@ -17,4 +17,6 @@ public interface ReviewService {
     ReviewResponse createPcCaseReview(String userEmail, UUID pcCaseId, CreateReviewRequest request);
 
     ReviewResponse updatePcCaseReview(String userEmail, UUID pcCaseId, UUID reviewId, UpdateReviewRequest request);
+
+    void deletePcCaseReview(String userEmail, UUID pcCaseId, UUID reviewId);
 }
