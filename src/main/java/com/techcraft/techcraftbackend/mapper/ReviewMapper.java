@@ -14,5 +14,6 @@ public interface ReviewMapper {
     @Mapping(target = "productId", source = "product.id")
     @Mapping(target = "productName", source = "product.name")
     @Mapping(target = "pcCaseId", source = "pcCase.id")
+    @Mapping(target = "pcCaseName", source = "pcCase.name")
     ReviewResponse toResponse(Review review);
 }

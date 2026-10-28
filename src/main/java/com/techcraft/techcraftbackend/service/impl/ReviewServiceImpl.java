@@ -3,6 +3,7 @@ package com.techcraft.techcraftbackend.service.impl;
 import com.techcraft.techcraftbackend.dto.request.CreateReviewRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdateReviewRequest;
 import com.techcraft.techcraftbackend.dto.response.ReviewResponse;
+import com.techcraft.techcraftbackend.entity.PcCase;
 import com.techcraft.techcraftbackend.entity.Product;
 import com.techcraft.techcraftbackend.entity.Review;
 import com.techcraft.techcraftbackend.entity.User;
@@ -11,6 +12,7 @@ import com.techcraft.techcraftbackend.enums.Role;
 import com.techcraft.techcraftbackend.exception.*;
 import com.techcraft.techcraftbackend.mapper.ReviewMapper;
 import com.techcraft.techcraftbackend.repository.OrderRepository;
+import com.techcraft.techcraftbackend.repository.PcCaseRepository;
 import com.techcraft.techcraftbackend.repository.ProductRepository;
 import com.techcraft.techcraftbackend.repository.ReviewRepository;
 import com.techcraft.techcraftbackend.repository.UserRepository;
@@ -30,6 +32,7 @@ public class ReviewServiceImpl implements ReviewService {
 
     private final ReviewRepository reviewRepository;
     private final ProductRepository productRepository;
+    private final PcCaseRepository pcCaseRepository;
     private final OrderRepository orderRepository;
     private final UserRepository userRepository;
     private final ReviewMapper reviewMapper;
@@ -139,5 +142,44 @@ public class ReviewServiceImpl implements ReviewService {
         product.removeReview(review);
         reviewRepository.delete(review);
         log.info("User {} successfully deleted review {} for product {}", user.getEmail(), reviewId, productId);
+    }
+
+    @Override
+    @Transactional
+    public ReviewResponse createPcCaseReview(String userEmail, UUID pcCaseId, CreateReviewRequest request) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new UnauthorizedException("Vui lòng đăng nhập để thực hiện chức năng này."));
+
+        PcCase pcCase = pcCaseRepository.findById(pcCaseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + pcCaseId));
+
+        if (!pcCase.isActive() && user.getRole() != Role.ADMIN) {
+            throw new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + pcCaseId);
+        }
+
+        if (reviewRepository.existsByUserIdAndPcCaseId(user.getId(), pcCaseId)) {
+            throw new DuplicateResourceException("Bạn đã đánh giá cấu hình PC này rồi.");
+        }
+
+        boolean hasPurchased = orderRepository.hasUserPurchasedPcCase(user.getId(), pcCaseId, OrderStatus.DELIVERED);
+        if (!hasPurchased) {
+            throw new BadRequestException("Bạn chỉ có thể đánh giá cấu hình PC sau khi đã mua và nhận hàng thành công.");
+        }
+
+        String comment = (request.getComment() != null && !request.getComment().trim().isEmpty())
+                ? request.getComment().trim()
+                : null;
+
+        Review review = Review.builder()
+                .user(user)
+                .rating(request.getRating())
+                .comment(comment)
+                .build();
+
+        pcCase.addReview(review);
+        Review savedReview = reviewRepository.save(review);
+        log.info("User {} successfully reviewed PC Case {} with rating {}", user.getEmail(), pcCase.getId(), request.getRating());
+
+        return reviewMapper.toResponse(savedReview);
     }
 }

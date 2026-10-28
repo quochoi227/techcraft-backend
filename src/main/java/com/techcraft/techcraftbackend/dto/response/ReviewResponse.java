@@ -21,6 +21,7 @@ public class ReviewResponse {
     private UUID productId;
     private String productName;
     private UUID pcCaseId;
+    private String pcCaseName;
     private Integer rating;
     private String comment;
     private Instant createdAt;

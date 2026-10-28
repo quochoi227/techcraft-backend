@@ -3,6 +3,7 @@ package com.techcraft.techcraftbackend.service;
 import com.techcraft.techcraftbackend.dto.request.CreateReviewRequest;
 import com.techcraft.techcraftbackend.dto.request.UpdateReviewRequest;
 import com.techcraft.techcraftbackend.dto.response.ReviewResponse;
+import com.techcraft.techcraftbackend.entity.PcCase;
 import com.techcraft.techcraftbackend.entity.Product;
 import com.techcraft.techcraftbackend.entity.Review;
 import com.techcraft.techcraftbackend.entity.User;
@@ -12,6 +13,7 @@ import com.techcraft.techcraftbackend.enums.Role;
 import com.techcraft.techcraftbackend.exception.*;
 import com.techcraft.techcraftbackend.mapper.ReviewMapper;
 import com.techcraft.techcraftbackend.repository.OrderRepository;
+import com.techcraft.techcraftbackend.repository.PcCaseRepository;
 import com.techcraft.techcraftbackend.repository.ProductRepository;
 import com.techcraft.techcraftbackend.repository.ReviewRepository;
 import com.techcraft.techcraftbackend.repository.UserRepository;
@@ -46,6 +48,9 @@ class ReviewServiceTest {
     private ProductRepository productRepository;
 
     @Mock
+    private PcCaseRepository pcCaseRepository;
+
+    @Mock
     private OrderRepository orderRepository;
 
     @Mock
@@ -59,13 +64,16 @@ class ReviewServiceTest {
 
     private User testUser;
     private Product testProduct;
+    private PcCase testPcCase;
     private UUID userId;
     private UUID productId;
+    private UUID pcCaseId;
 
     @BeforeEach
     void setUp() {
         userId = UUID.randomUUID();
         productId = UUID.randomUUID();
+        pcCaseId = UUID.randomUUID();
 
         testUser = User.builder()
                 .id(userId)
@@ -82,6 +90,13 @@ class ReviewServiceTest {
                 .stockQuantity(10)
                 .category(ProductCategory.CPU)
                 .detail(Map.of("socket", "LGA1700"))
+                .isActive(true)
+                .build();
+
+        testPcCase = PcCase.builder()
+                .id(pcCaseId)
+                .name("PC Gaming Starter 2025")
+                .totalPrice(new BigDecimal("15000000.00"))
                 .isActive(true)
                 .build();
     }
@@ -586,5 +601,191 @@ class ReviewServiceTest {
         assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
         assertEquals("Bạn không có quyền xóa đánh giá của người dùng khác.", ex.getMessage());
         verify(reviewRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Tạo đánh giá PC Case thành công khi người dùng đã mua hàng và giao thành công")
+    void createPcCaseReview_Success() {
+        CreateReviewRequest request = CreateReviewRequest.builder()
+                .rating(5)
+                .comment("  Cấu hình máy chạy rất mượt!  ")
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.existsByUserIdAndPcCaseId(userId, pcCaseId)).thenReturn(false);
+        when(orderRepository.hasUserPurchasedPcCase(userId, pcCaseId, OrderStatus.DELIVERED)).thenReturn(true);
+
+        Review savedReview = Review.builder()
+                .id(UUID.randomUUID())
+                .user(testUser)
+                .pcCase(testPcCase)
+                .rating(5)
+                .comment("Cấu hình máy chạy rất mượt!")
+                .createdAt(Instant.now())
+                .updatedAt(Instant.now())
+                .build();
+
+        ReviewResponse expectedResponse = ReviewResponse.builder()
+                .id(savedReview.getId())
+                .userId(userId)
+                .userEmail(testUser.getEmail())
+                .userFullName(testUser.getFullName())
+                .pcCaseId(pcCaseId)
+                .pcCaseName(testPcCase.getName())
+                .rating(5)
+                .comment("Cấu hình máy chạy rất mượt!")
+                .build();
+
+        when(reviewRepository.save(any(Review.class))).thenReturn(savedReview);
+        when(reviewMapper.toResponse(savedReview)).thenReturn(expectedResponse);
+
+        ReviewResponse actualResponse = reviewService.createPcCaseReview(testUser.getEmail(), pcCaseId, request);
+
+        assertNotNull(actualResponse);
+        assertEquals(5, actualResponse.getRating());
+        assertEquals("Cấu hình máy chạy rất mượt!", actualResponse.getComment());
+        assertEquals(pcCaseId, actualResponse.getPcCaseId());
+        assertEquals(testPcCase.getName(), actualResponse.getPcCaseName());
+
+        ArgumentCaptor<Review> reviewCaptor = ArgumentCaptor.forClass(Review.class);
+        verify(reviewRepository).save(reviewCaptor.capture());
+        Review captured = reviewCaptor.getValue();
+        assertEquals(testUser, captured.getUser());
+        assertEquals(testPcCase, captured.getPcCase());
+        assertEquals(5, captured.getRating());
+        assertEquals("Cấu hình máy chạy rất mượt!", captured.getComment());
+        assertTrue(testPcCase.getReviews().contains(captured));
+    }
+
+    @Test
+    @DisplayName("Tạo đánh giá PC Case thành công khi nhận xét trống (comment chuyển thành null)")
+    void createPcCaseReview_Success_EmptyComment() {
+        CreateReviewRequest request = CreateReviewRequest.builder()
+                .rating(4)
+                .comment("   ")
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.existsByUserIdAndPcCaseId(userId, pcCaseId)).thenReturn(false);
+        when(orderRepository.hasUserPurchasedPcCase(userId, pcCaseId, OrderStatus.DELIVERED)).thenReturn(true);
+
+        Review savedReview = Review.builder()
+                .id(UUID.randomUUID())
+                .user(testUser)
+                .pcCase(testPcCase)
+                .rating(4)
+                .comment(null)
+                .build();
+
+        when(reviewRepository.save(any(Review.class))).thenReturn(savedReview);
+        when(reviewMapper.toResponse(savedReview)).thenReturn(ReviewResponse.builder().rating(4).comment(null).build());
+
+        ReviewResponse response = reviewService.createPcCaseReview(testUser.getEmail(), pcCaseId, request);
+
+        assertNotNull(response);
+        ArgumentCaptor<Review> reviewCaptor = ArgumentCaptor.forClass(Review.class);
+        verify(reviewRepository).save(reviewCaptor.capture());
+        assertNull(reviewCaptor.getValue().getComment());
+    }
+
+    @Test
+    @DisplayName("Ném UnauthorizedException khi user không tồn tại trong hệ thống khi đánh giá PC Case")
+    void createPcCaseReview_ThrowsUnauthorized_WhenUserNotFound() {
+        CreateReviewRequest request = CreateReviewRequest.builder().rating(5).build();
+        when(userRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(UnauthorizedException.class, () ->
+                reviewService.createPcCaseReview("unknown@example.com", pcCaseId, request));
+
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy PC Case")
+    void createPcCaseReview_ThrowsNotFound_WhenPcCaseNotFound() {
+        CreateReviewRequest request = CreateReviewRequest.builder().rating(5).build();
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                reviewService.createPcCaseReview(testUser.getEmail(), pcCaseId, request));
+
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi PC Case bị ẩn và user không phải Admin")
+    void createPcCaseReview_ThrowsNotFound_WhenPcCaseInactiveForUser() {
+        CreateReviewRequest request = CreateReviewRequest.builder().rating(5).build();
+        testPcCase.setActive(false);
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                reviewService.createPcCaseReview(testUser.getEmail(), pcCaseId, request));
+
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Admin có thể đánh giá PC Case ngay cả khi cấu hình PC đang bị ẩn")
+    void createPcCaseReview_Success_WhenPcCaseInactiveForAdmin() {
+        CreateReviewRequest request = CreateReviewRequest.builder().rating(5).build();
+        testPcCase.setActive(false);
+
+        User adminUser = User.builder()
+                .id(UUID.randomUUID())
+                .email("admin@example.com")
+                .role(Role.ADMIN)
+                .build();
+
+        when(userRepository.findByEmail(adminUser.getEmail())).thenReturn(Optional.of(adminUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.existsByUserIdAndPcCaseId(adminUser.getId(), pcCaseId)).thenReturn(false);
+        when(orderRepository.hasUserPurchasedPcCase(adminUser.getId(), pcCaseId, OrderStatus.DELIVERED)).thenReturn(true);
+
+        Review savedReview = Review.builder().id(UUID.randomUUID()).rating(5).build();
+        when(reviewRepository.save(any(Review.class))).thenReturn(savedReview);
+        when(reviewMapper.toResponse(savedReview)).thenReturn(ReviewResponse.builder().rating(5).build());
+
+        ReviewResponse response = reviewService.createPcCaseReview(adminUser.getEmail(), pcCaseId, request);
+        assertNotNull(response);
+        verify(reviewRepository).save(any(Review.class));
+    }
+
+    @Test
+    @DisplayName("Ném DuplicateResourceException khi người dùng đã đánh giá PC Case này rồi")
+    void createPcCaseReview_ThrowsDuplicate_WhenAlreadyReviewed() {
+        CreateReviewRequest request = CreateReviewRequest.builder().rating(5).build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.existsByUserIdAndPcCaseId(userId, pcCaseId)).thenReturn(true);
+
+        DuplicateResourceException ex = assertThrows(DuplicateResourceException.class, () ->
+                reviewService.createPcCaseReview(testUser.getEmail(), pcCaseId, request));
+
+        assertEquals("Bạn đã đánh giá cấu hình PC này rồi.", ex.getMessage());
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi người dùng chưa từng mua PC Case với đơn hàng giao thành công")
+    void createPcCaseReview_ThrowsBadRequest_WhenNotPurchased() {
+        CreateReviewRequest request = CreateReviewRequest.builder().rating(5).build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.existsByUserIdAndPcCaseId(userId, pcCaseId)).thenReturn(false);
+        when(orderRepository.hasUserPurchasedPcCase(userId, pcCaseId, OrderStatus.DELIVERED)).thenReturn(false);
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                reviewService.createPcCaseReview(testUser.getEmail(), pcCaseId, request));
+
+        assertEquals("Bạn chỉ có thể đánh giá cấu hình PC sau khi đã mua và nhận hàng thành công.", ex.getMessage());
+        verify(reviewRepository, never()).save(any());
     }
 }

@@ -67,4 +67,20 @@ public class ReviewController {
         reviewService.deleteProductReview(principal.getName(), id, reviewId);
         return ResponseEntity.ok(ApiResponse.success("Xoá đánh giá linh kiện thành công!", null));
     }
+
+    @PostMapping("/pc-cases/{id}/reviews")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<ReviewResponse>> createPcCaseReview(
+            Principal principal,
+            @PathVariable("id") UUID id,
+            @Valid @RequestBody CreateReviewRequest request) {
+        if (principal == null || principal.getName() == null) {
+            throw new UnauthorizedException("Vui lòng đăng nhập để thực hiện chức năng này.");
+        }
+
+        ReviewResponse response = reviewService.createPcCaseReview(principal.getName(), id, request);
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Đánh giá cấu hình PC thành công!", response));
+    }
 }
