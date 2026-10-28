@@ -1,6 +1,7 @@
 package com.techcraft.techcraftbackend.service;
 
 import com.techcraft.techcraftbackend.dto.request.CreateReviewRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateReviewRequest;
 import com.techcraft.techcraftbackend.dto.response.ReviewResponse;
 import com.techcraft.techcraftbackend.entity.Product;
 import com.techcraft.techcraftbackend.entity.Review;
@@ -8,10 +9,7 @@ import com.techcraft.techcraftbackend.entity.User;
 import com.techcraft.techcraftbackend.enums.OrderStatus;
 import com.techcraft.techcraftbackend.enums.ProductCategory;
 import com.techcraft.techcraftbackend.enums.Role;
-import com.techcraft.techcraftbackend.exception.BadRequestException;
-import com.techcraft.techcraftbackend.exception.DuplicateResourceException;
-import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
-import com.techcraft.techcraftbackend.exception.UnauthorizedException;
+import com.techcraft.techcraftbackend.exception.*;
 import com.techcraft.techcraftbackend.mapper.ReviewMapper;
 import com.techcraft.techcraftbackend.repository.OrderRepository;
 import com.techcraft.techcraftbackend.repository.ProductRepository;
@@ -26,6 +24,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -260,6 +259,181 @@ class ReviewServiceTest {
                 reviewService.createProductReview(testUser.getEmail(), productId, request));
 
         assertEquals("Bạn chỉ có thể đánh giá linh kiện sau khi đã mua và nhận hàng thành công.", exception.getMessage());
+        verify(reviewRepository, never()).save(any());
+    }
+
+    // ================== TESTS CHO UPDATE REVIEW ==================
+
+    @Test
+    @DisplayName("Cập nhật đánh giá thành công khi là chính chủ")
+    void updateProductReview_Success() {
+        UUID reviewId = UUID.randomUUID();
+        UpdateReviewRequest request = UpdateReviewRequest.builder()
+                .rating(4)
+                .comment("  Cập nhật sau 1 tháng sử dụng: Rất bền và mát.  ")
+                .build();
+
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .product(testProduct)
+                .rating(5)
+                .comment("Đánh giá ban đầu")
+                .createdAt(Instant.now().minusSeconds(86400))
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(testProduct));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+        when(reviewRepository.save(any(Review.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ReviewResponse expectedResponse = ReviewResponse.builder()
+                .id(reviewId)
+                .userId(userId)
+                .productId(productId)
+                .rating(4)
+                .comment("Cập nhật sau 1 tháng sử dụng: Rất bền và mát.")
+                .build();
+        when(reviewMapper.toResponse(any(Review.class))).thenReturn(expectedResponse);
+
+        ReviewResponse response = reviewService.updateProductReview(testUser.getEmail(), productId, reviewId, request);
+
+        assertNotNull(response);
+        assertEquals(4, response.getRating());
+        assertEquals("Cập nhật sau 1 tháng sử dụng: Rất bền và mát.", response.getComment());
+
+        ArgumentCaptor<Review> captor = ArgumentCaptor.forClass(Review.class);
+        verify(reviewRepository).save(captor.capture());
+        Review saved = captor.getValue();
+        assertEquals(4, saved.getRating());
+        assertEquals("Cập nhật sau 1 tháng sử dụng: Rất bền và mát.", saved.getComment());
+    }
+
+    @Test
+    @DisplayName("Cập nhật đánh giá thành công khi xóa comment (để trống)")
+    void updateProductReview_Success_EmptyComment() {
+        UUID reviewId = UUID.randomUUID();
+        UpdateReviewRequest request = UpdateReviewRequest.builder()
+                .rating(3)
+                .comment("   ")
+                .build();
+
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .product(testProduct)
+                .rating(5)
+                .comment("Có comment trước đó")
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(testProduct));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+        when(reviewRepository.save(any(Review.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(reviewMapper.toResponse(any(Review.class))).thenReturn(ReviewResponse.builder().id(reviewId).rating(3).build());
+
+        ReviewResponse response = reviewService.updateProductReview(testUser.getEmail(), productId, reviewId, request);
+
+        assertNotNull(response);
+        ArgumentCaptor<Review> captor = ArgumentCaptor.forClass(Review.class);
+        verify(reviewRepository).save(captor.capture());
+        assertNull(captor.getValue().getComment());
+    }
+
+    @Test
+    @DisplayName("Ném UnauthorizedException khi user không tồn tại trong DB khi update")
+    void updateProductReview_ThrowsUnauthorized_WhenUserNotFound() {
+        UUID reviewId = UUID.randomUUID();
+        UpdateReviewRequest request = UpdateReviewRequest.builder().rating(5).build();
+
+        when(userRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(UnauthorizedException.class, () ->
+                reviewService.updateProductReview("unknown@example.com", productId, reviewId, request));
+
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy linh kiện khi update")
+    void updateProductReview_ThrowsNotFound_WhenProductNotFound() {
+        UUID reviewId = UUID.randomUUID();
+        UpdateReviewRequest request = UpdateReviewRequest.builder().rating(5).build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(productRepository.findById(productId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                reviewService.updateProductReview(testUser.getEmail(), productId, reviewId, request));
+
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy review cần update")
+    void updateProductReview_ThrowsNotFound_WhenReviewNotFound() {
+        UUID reviewId = UUID.randomUUID();
+        UpdateReviewRequest request = UpdateReviewRequest.builder().rating(5).build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(testProduct));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                reviewService.updateProductReview(testUser.getEmail(), productId, reviewId, request));
+
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi review không thuộc về sản phẩm trên URL")
+    void updateProductReview_ThrowsBadRequest_WhenReviewDoesNotMatchProduct() {
+        UUID reviewId = UUID.randomUUID();
+        UUID otherProductId = UUID.randomUUID();
+        Product otherProduct = Product.builder().id(otherProductId).build();
+
+        UpdateReviewRequest request = UpdateReviewRequest.builder().rating(5).build();
+
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .product(otherProduct)
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(testProduct));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                reviewService.updateProductReview(testUser.getEmail(), productId, reviewId, request));
+
+        assertEquals("Đánh giá này không thuộc về linh kiện đã chỉ định.", ex.getMessage());
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném AppException (403 Forbidden) khi người dùng cố tình cập nhật đánh giá của người khác")
+    void updateProductReview_ThrowsForbidden_WhenNotOwner() {
+        UUID reviewId = UUID.randomUUID();
+        User anotherUser = User.builder().id(UUID.randomUUID()).email("another@example.com").build();
+
+        UpdateReviewRequest request = UpdateReviewRequest.builder().rating(5).build();
+
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(anotherUser)
+                .product(testProduct)
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(testProduct));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                reviewService.updateProductReview(testUser.getEmail(), productId, reviewId, request));
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
+        assertEquals("Bạn không có quyền cập nhật đánh giá của người dùng khác.", ex.getMessage());
         verify(reviewRepository, never()).save(any());
     }
 }
