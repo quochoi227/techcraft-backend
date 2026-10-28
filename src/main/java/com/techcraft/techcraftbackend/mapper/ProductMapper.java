@@ -1,14 +1,13 @@
 package com.techcraft.techcraftbackend.mapper;
 
 import com.techcraft.techcraftbackend.dto.request.CreateProductRequest;
+import com.techcraft.techcraftbackend.dto.request.UpdateProductRequest;
 import com.techcraft.techcraftbackend.dto.response.ProductImageResponse;
 import com.techcraft.techcraftbackend.dto.response.ProductResponse;
 import com.techcraft.techcraftbackend.entity.Product;
 import com.techcraft.techcraftbackend.entity.ProductImage;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-
-import com.techcraft.techcraftbackend.dto.request.UpdateProductRequest;
 import org.mapstruct.MappingTarget;
 
 @Mapper(componentModel = "spring")
@@ -16,6 +15,7 @@ public interface ProductMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "images", ignore = true)
+    @Mapping(target = "reviews", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "isActive", source = "isActive")
@@ -23,6 +23,7 @@ public interface ProductMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "images", ignore = true)
+    @Mapping(target = "reviews", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "active", ignore = true)

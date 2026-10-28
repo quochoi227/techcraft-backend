@@ -30,4 +30,15 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
            "LEFT JOIN FETCH i.pcCase pc " +
            "WHERE o.id = :orderId")
     Optional<Order> findByIdWithDetails(@Param("orderId") UUID orderId);
+
+    @Query("SELECT COUNT(o) > 0 FROM Order o " +
+           "JOIN o.items item " +
+           "WHERE o.user.id = :userId " +
+           "AND o.status = :status " +
+           "AND (item.product.id = :productId OR EXISTS (" +
+           "    SELECT pci FROM PcCaseItem pci WHERE pci.pcCase = item.pcCase AND pci.product.id = :productId" +
+           "))")
+    boolean hasUserPurchasedProduct(@Param("userId") UUID userId,
+                                   @Param("productId") UUID productId,
+                                   @Param("status") OrderStatus status);
 }
