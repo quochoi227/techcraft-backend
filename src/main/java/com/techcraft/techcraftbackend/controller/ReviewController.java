@@ -53,4 +53,18 @@ public class ReviewController {
         ReviewResponse response = reviewService.updateProductReview(principal.getName(), id, reviewId, request);
         return ResponseEntity.ok(ApiResponse.success("Cập nhật đánh giá linh kiện thành công!", response));
     }
+
+    @DeleteMapping("/products/{id}/reviews/{reviewId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<Void>> deleteProductReview(
+            Principal principal,
+            @PathVariable("id") UUID id,
+            @PathVariable("reviewId") UUID reviewId) {
+        if (principal == null || principal.getName() == null) {
+            throw new UnauthorizedException("Vui lòng đăng nhập để thực hiện chức năng này.");
+        }
+
+        reviewService.deleteProductReview(principal.getName(), id, reviewId);
+        return ResponseEntity.ok(ApiResponse.success("Xoá đánh giá linh kiện thành công!", null));
+    }
 }

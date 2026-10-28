@@ -11,4 +11,6 @@ public interface ReviewService {
     ReviewResponse createProductReview(String userEmail, UUID productId, CreateReviewRequest request);
 
     ReviewResponse updateProductReview(String userEmail, UUID productId, UUID reviewId, UpdateReviewRequest request);
+
+    void deleteProductReview(String userEmail, UUID productId, UUID reviewId);
 }

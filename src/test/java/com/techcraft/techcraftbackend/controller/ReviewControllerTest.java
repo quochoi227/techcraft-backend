@@ -25,7 +25,11 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -313,6 +317,82 @@ class ReviewControllerTest {
         mockMvc.perform(put("/api/products/{id}/reviews/{reviewId}", productId, reviewId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Đánh giá này không thuộc về linh kiện đã chỉ định."));
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Xóa đánh giá thành công khi người dùng là chủ sở hữu (200 OK)")
+    void deleteProductReview_AsOwner_Returns200Ok() throws Exception {
+        UUID productId = UUID.randomUUID();
+        UUID reviewId = UUID.randomUUID();
+
+        doNothing().when(reviewService).deleteProductReview("user@example.com", productId, reviewId);
+
+        mockMvc.perform(delete("/api/products/{id}/reviews/{reviewId}", productId, reviewId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Xoá đánh giá linh kiện thành công!"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        verify(reviewService).deleteProductReview("user@example.com", productId, reviewId);
+    }
+
+    @Test
+    @DisplayName("Chưa đăng nhập khi xóa đánh giá -> Trả về 401 Unauthorized")
+    void deleteProductReview_Unauthenticated_Returns401Unauthorized() throws Exception {
+        UUID productId = UUID.randomUUID();
+        UUID reviewId = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/products/{id}/reviews/{reviewId}", productId, reviewId))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Trả về 403 Forbidden khi người dùng cố tình xóa đánh giá của người khác")
+    void deleteProductReview_WhenNotOwner_Returns403Forbidden() throws Exception {
+        UUID productId = UUID.randomUUID();
+        UUID reviewId = UUID.randomUUID();
+
+        doThrow(new AppException("Bạn không có quyền xóa đánh giá của người dùng khác.", HttpStatus.FORBIDDEN))
+                .when(reviewService).deleteProductReview("user@example.com", productId, reviewId);
+
+        mockMvc.perform(delete("/api/products/{id}/reviews/{reviewId}", productId, reviewId))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Bạn không có quyền xóa đánh giá của người dùng khác."));
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Trả về 404 Not Found khi không tìm thấy đánh giá cần xóa")
+    void deleteProductReview_WhenNotFound_Returns404NotFound() throws Exception {
+        UUID productId = UUID.randomUUID();
+        UUID reviewId = UUID.randomUUID();
+
+        doThrow(new ResourceNotFoundException("Không tìm thấy đánh giá với ID: " + reviewId))
+                .when(reviewService).deleteProductReview("user@example.com", productId, reviewId);
+
+        mockMvc.perform(delete("/api/products/{id}/reviews/{reviewId}", productId, reviewId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy đánh giá với ID: " + reviewId));
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Trả về 400 Bad Request khi review không thuộc linh kiện trên URL")
+    void deleteProductReview_WhenMismatchProduct_Returns400BadRequest() throws Exception {
+        UUID productId = UUID.randomUUID();
+        UUID reviewId = UUID.randomUUID();
+
+        doThrow(new BadRequestException("Đánh giá này không thuộc về linh kiện đã chỉ định."))
+                .when(reviewService).deleteProductReview("user@example.com", productId, reviewId);
+
+        mockMvc.perform(delete("/api/products/{id}/reviews/{reviewId}", productId, reviewId))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("Đánh giá này không thuộc về linh kiện đã chỉ định."));

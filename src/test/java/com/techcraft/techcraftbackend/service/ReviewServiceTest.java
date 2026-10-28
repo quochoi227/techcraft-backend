@@ -436,4 +436,155 @@ class ReviewServiceTest {
         assertEquals("Bạn không có quyền cập nhật đánh giá của người dùng khác.", ex.getMessage());
         verify(reviewRepository, never()).save(any());
     }
+
+    @Test
+    @DisplayName("Xóa đánh giá thành công khi là chủ sở hữu")
+    void deleteProductReview_Success_AsOwner() {
+        UUID reviewId = UUID.randomUUID();
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .product(testProduct)
+                .rating(4)
+                .build();
+        testProduct.addReview(existingReview);
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(testProduct));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+
+        reviewService.deleteProductReview(testUser.getEmail(), productId, reviewId);
+
+        verify(reviewRepository).delete(existingReview);
+        assertFalse(testProduct.getReviews().contains(existingReview));
+    }
+
+    @Test
+    @DisplayName("Admin xóa đánh giá của người dùng khác thành công")
+    void deleteProductReview_Success_AsAdmin() {
+        UUID reviewId = UUID.randomUUID();
+        User adminUser = User.builder()
+                .id(UUID.randomUUID())
+                .email("admin@example.com")
+                .role(Role.ADMIN)
+                .build();
+
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .product(testProduct)
+                .rating(1)
+                .comment("Spam review")
+                .build();
+        testProduct.addReview(existingReview);
+
+        when(userRepository.findByEmail(adminUser.getEmail())).thenReturn(Optional.of(adminUser));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(testProduct));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+
+        reviewService.deleteProductReview(adminUser.getEmail(), productId, reviewId);
+
+        verify(reviewRepository).delete(existingReview);
+        assertFalse(testProduct.getReviews().contains(existingReview));
+    }
+
+    @Test
+    @DisplayName("Ném UnauthorizedException khi user không tồn tại trong hệ thống")
+    void deleteProductReview_ThrowsUnauthorized_WhenUserNotFound() {
+        UUID reviewId = UUID.randomUUID();
+        when(userRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(UnauthorizedException.class, () ->
+                reviewService.deleteProductReview("unknown@example.com", productId, reviewId));
+
+        verify(reviewRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy linh kiện")
+    void deleteProductReview_ThrowsNotFound_WhenProductNotFound() {
+        UUID reviewId = UUID.randomUUID();
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(productRepository.findById(productId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                reviewService.deleteProductReview(testUser.getEmail(), productId, reviewId));
+
+        verify(reviewRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi linh kiện bị ẩn và user không phải Admin")
+    void deleteProductReview_ThrowsNotFound_WhenProductInactiveAndUserNotAdmin() {
+        UUID reviewId = UUID.randomUUID();
+        testProduct.setActive(false);
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(testProduct));
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                reviewService.deleteProductReview(testUser.getEmail(), productId, reviewId));
+
+        verify(reviewRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy đánh giá")
+    void deleteProductReview_ThrowsNotFound_WhenReviewNotFound() {
+        UUID reviewId = UUID.randomUUID();
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(testProduct));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                reviewService.deleteProductReview(testUser.getEmail(), productId, reviewId));
+
+        verify(reviewRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi review không thuộc về linh kiện chỉ định")
+    void deleteProductReview_ThrowsBadRequest_WhenReviewDoesNotMatchProduct() {
+        UUID reviewId = UUID.randomUUID();
+        Product otherProduct = Product.builder().id(UUID.randomUUID()).build();
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .product(otherProduct)
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(testProduct));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                reviewService.deleteProductReview(testUser.getEmail(), productId, reviewId));
+
+        assertEquals("Đánh giá này không thuộc về linh kiện đã chỉ định.", ex.getMessage());
+        verify(reviewRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Ném AppException (403 Forbidden) khi người dùng cố tình xóa đánh giá của người khác")
+    void deleteProductReview_ThrowsForbidden_WhenNotOwnerAndNotAdmin() {
+        UUID reviewId = UUID.randomUUID();
+        User anotherUser = User.builder().id(UUID.randomUUID()).email("another@example.com").build();
+
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(anotherUser)
+                .product(testProduct)
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(productRepository.findById(productId)).thenReturn(Optional.of(testProduct));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                reviewService.deleteProductReview(testUser.getEmail(), productId, reviewId));
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
+        assertEquals("Bạn không có quyền xóa đánh giá của người dùng khác.", ex.getMessage());
+        verify(reviewRepository, never()).delete(any());
+    }
 }
