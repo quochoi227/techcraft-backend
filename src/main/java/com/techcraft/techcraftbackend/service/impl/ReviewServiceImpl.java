@@ -182,4 +182,41 @@ public class ReviewServiceImpl implements ReviewService {
 
         return reviewMapper.toResponse(savedReview);
     }
+
+    @Override
+    @Transactional
+    public ReviewResponse updatePcCaseReview(String userEmail, UUID pcCaseId, UUID reviewId, UpdateReviewRequest request) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new UnauthorizedException("Vui lòng đăng nhập để thực hiện chức năng này."));
+
+        PcCase pcCase = pcCaseRepository.findById(pcCaseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + pcCaseId));
+
+        if (!pcCase.isActive() && user.getRole() != Role.ADMIN) {
+            throw new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + pcCaseId);
+        }
+
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đánh giá với ID: " + reviewId));
+
+        if (review.getPcCase() == null || !review.getPcCase().getId().equals(pcCaseId)) {
+            throw new BadRequestException("Đánh giá này không thuộc về cấu hình PC đã chỉ định.");
+        }
+
+        if (!review.getUser().getId().equals(user.getId())) {
+            throw new AppException("Bạn không có quyền cập nhật đánh giá của người dùng khác.", HttpStatus.FORBIDDEN);
+        }
+
+        String comment = (request.getComment() != null && !request.getComment().trim().isEmpty())
+                ? request.getComment().trim()
+                : null;
+
+        review.setRating(request.getRating());
+        review.setComment(comment);
+
+        Review updatedReview = reviewRepository.save(review);
+        log.info("User {} successfully updated review {} for PC Case {}", user.getEmail(), reviewId, pcCaseId);
+
+        return reviewMapper.toResponse(updatedReview);
+    }
 }

@@ -83,4 +83,19 @@ public class ReviewController {
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Đánh giá cấu hình PC thành công!", response));
     }
+
+    @PutMapping("/pc-cases/{id}/reviews/{reviewId}")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<ReviewResponse>> updatePcCaseReview(
+            Principal principal,
+            @PathVariable("id") UUID id,
+            @PathVariable("reviewId") UUID reviewId,
+            @Valid @RequestBody UpdateReviewRequest request) {
+        if (principal == null || principal.getName() == null) {
+            throw new UnauthorizedException("Vui lòng đăng nhập để thực hiện chức năng này.");
+        }
+
+        ReviewResponse response = reviewService.updatePcCaseReview(principal.getName(), id, reviewId, request);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật đánh giá cấu hình PC thành công!", response));
+    }
 }
