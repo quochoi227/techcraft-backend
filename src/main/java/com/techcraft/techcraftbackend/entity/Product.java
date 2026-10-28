@@ -68,6 +68,12 @@ public class Product {
     @Builder.Default
     private List<ProductImage> images = new ArrayList<>();
 
+    @OrderBy("createdAt DESC")
+    @BatchSize(size = 30)
+    @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Review> reviews = new ArrayList<>();
+
     public void addImage(ProductImage image) {
         images.add(image);
         image.setProduct(this);
@@ -76,5 +82,15 @@ public class Product {
     public void removeImage(ProductImage image) {
         images.remove(image);
         image.setProduct(null);
+    }
+
+    public void addReview(Review review) {
+        reviews.add(review);
+        review.setProduct(this);
+    }
+
+    public void removeReview(Review review) {
+        reviews.remove(review);
+        review.setProduct(null);
     }
 }

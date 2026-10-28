@@ -28,6 +28,13 @@ public class PcCaseResponse {
     @Builder.Default
     private List<PcCaseItemResponse> items = new ArrayList<>();
 
+    @Builder.Default
+    private List<ReviewResponse> reviews = new ArrayList<>();
+
+    private Double averageRating;
+
+    private Integer totalReviews;
+
     private Instant createdAt;
     private Instant updatedAt;
 }

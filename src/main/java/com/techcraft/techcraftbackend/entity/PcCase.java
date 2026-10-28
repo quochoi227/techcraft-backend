@@ -55,6 +55,12 @@ public class PcCase {
     @Builder.Default
     private List<PcCaseItem> items = new ArrayList<>();
 
+    @OrderBy("createdAt DESC")
+    @BatchSize(size = 30)
+    @OneToMany(mappedBy = "pcCase", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<Review> reviews = new ArrayList<>();
+
     public void addItem(PcCaseItem item) {
         items.add(item);
         item.setPcCase(this);
@@ -63,5 +69,15 @@ public class PcCase {
     public void removeItem(PcCaseItem item) {
         items.remove(item);
         item.setPcCase(null);
+    }
+
+    public void addReview(Review review) {
+        reviews.add(review);
+        review.setPcCase(this);
+    }
+
+    public void removeReview(Review review) {
+        reviews.remove(review);
+        review.setPcCase(null);
     }
 }
