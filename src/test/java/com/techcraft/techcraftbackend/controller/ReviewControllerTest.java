@@ -397,4 +397,143 @@ class ReviewControllerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("Đánh giá này không thuộc về linh kiện đã chỉ định."));
     }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Gửi đánh giá PC Case thành công khi người dùng hợp lệ và đã mua hàng")
+    void createPcCaseReview_AsAuthenticatedUser_Returns201Created() throws Exception {
+        UUID pcCaseId = UUID.randomUUID();
+        CreateReviewRequest request = CreateReviewRequest.builder()
+                .rating(5)
+                .comment("Cấu hình PC siêu mượt, đóng gói cẩn thận!")
+                .build();
+
+        ReviewResponse response = ReviewResponse.builder()
+                .id(UUID.randomUUID())
+                .userId(UUID.randomUUID())
+                .userEmail("user@example.com")
+                .pcCaseId(pcCaseId)
+                .pcCaseName("PC Gaming Starter 2025")
+                .rating(5)
+                .comment("Cấu hình PC siêu mượt, đóng gói cẩn thận!")
+                .createdAt(Instant.now())
+                .build();
+
+        when(reviewService.createPcCaseReview(eq("user@example.com"), eq(pcCaseId), any(CreateReviewRequest.class)))
+                .thenReturn(response);
+
+        mockMvc.perform(post("/api/pc-cases/{id}/reviews", pcCaseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Đánh giá cấu hình PC thành công!"))
+                .andExpect(jsonPath("$.data.rating").value(5))
+                .andExpect(jsonPath("$.data.pcCaseId").value(pcCaseId.toString()))
+                .andExpect(jsonPath("$.data.pcCaseName").value("PC Gaming Starter 2025"))
+                .andExpect(jsonPath("$.data.comment").value("Cấu hình PC siêu mượt, đóng gói cẩn thận!"));
+    }
+
+    @Test
+    @DisplayName("Chưa đăng nhập khi gửi đánh giá PC Case -> Trả về 401 Unauthorized")
+    void createPcCaseReview_Unauthenticated_Returns401Unauthorized() throws Exception {
+        UUID pcCaseId = UUID.randomUUID();
+        CreateReviewRequest request = CreateReviewRequest.builder()
+                .rating(5)
+                .comment("Chưa đăng nhập")
+                .build();
+
+        mockMvc.perform(post("/api/pc-cases/{id}/reviews", pcCaseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Gửi đánh giá PC Case với rating ngoài khoảng [1, 5] -> Trả về 400 Bad Request")
+    void createPcCaseReview_InvalidRating_Returns400BadRequest() throws Exception {
+        UUID pcCaseId = UUID.randomUUID();
+        CreateReviewRequest request = CreateReviewRequest.builder()
+                .rating(6)
+                .build();
+
+        mockMvc.perform(post("/api/pc-cases/{id}/reviews", pcCaseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.rating").exists());
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Gửi đánh giá PC Case thiếu rating -> Trả về 400 Bad Request")
+    void createPcCaseReview_NullRating_Returns400BadRequest() throws Exception {
+        UUID pcCaseId = UUID.randomUUID();
+        CreateReviewRequest request = CreateReviewRequest.builder()
+                .comment("Không có rating")
+                .build();
+
+        mockMvc.perform(post("/api/pc-cases/{id}/reviews", pcCaseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.data.rating").exists());
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Trả về 400 Bad Request khi người dùng chưa mua PC Case hoặc đơn hàng chưa hoàn tất")
+    void createPcCaseReview_WhenNotPurchased_Returns400BadRequest() throws Exception {
+        UUID pcCaseId = UUID.randomUUID();
+        CreateReviewRequest request = CreateReviewRequest.builder().rating(5).build();
+
+        when(reviewService.createPcCaseReview(eq("user@example.com"), eq(pcCaseId), any(CreateReviewRequest.class)))
+                .thenThrow(new BadRequestException("Bạn chỉ có thể đánh giá cấu hình PC sau khi đã mua và nhận hàng thành công."));
+
+        mockMvc.perform(post("/api/pc-cases/{id}/reviews", pcCaseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Bạn chỉ có thể đánh giá cấu hình PC sau khi đã mua và nhận hàng thành công."));
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Trả về 409 Conflict khi người dùng đã đánh giá PC Case này trước đó")
+    void createPcCaseReview_WhenAlreadyReviewed_Returns409Conflict() throws Exception {
+        UUID pcCaseId = UUID.randomUUID();
+        CreateReviewRequest request = CreateReviewRequest.builder().rating(5).build();
+
+        when(reviewService.createPcCaseReview(eq("user@example.com"), eq(pcCaseId), any(CreateReviewRequest.class)))
+                .thenThrow(new DuplicateResourceException("Bạn đã đánh giá cấu hình PC này rồi."));
+
+        mockMvc.perform(post("/api/pc-cases/{id}/reviews", pcCaseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Bạn đã đánh giá cấu hình PC này rồi."));
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Trả về 404 Not Found khi không tìm thấy PC Case cần đánh giá")
+    void createPcCaseReview_WhenPcCaseNotFound_Returns404NotFound() throws Exception {
+        UUID pcCaseId = UUID.randomUUID();
+        CreateReviewRequest request = CreateReviewRequest.builder().rating(5).build();
+
+        when(reviewService.createPcCaseReview(eq("user@example.com"), eq(pcCaseId), any(CreateReviewRequest.class)))
+                .thenThrow(new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + pcCaseId));
+
+        mockMvc.perform(post("/api/pc-cases/{id}/reviews", pcCaseId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy cấu hình PC với ID: " + pcCaseId));
+    }
 }

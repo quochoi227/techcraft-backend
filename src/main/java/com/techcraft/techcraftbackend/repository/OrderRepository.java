@@ -41,4 +41,13 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     boolean hasUserPurchasedProduct(@Param("userId") UUID userId,
                                    @Param("productId") UUID productId,
                                    @Param("status") OrderStatus status);
+
+    @Query("SELECT COUNT(o) > 0 FROM Order o " +
+           "JOIN o.items item " +
+           "WHERE o.user.id = :userId " +
+           "AND o.status = :status " +
+           "AND item.pcCase.id = :pcCaseId")
+    boolean hasUserPurchasedPcCase(@Param("userId") UUID userId,
+                                  @Param("pcCaseId") UUID pcCaseId,
+                                  @Param("status") OrderStatus status);
 }
