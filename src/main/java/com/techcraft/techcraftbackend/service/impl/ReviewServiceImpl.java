@@ -109,4 +109,35 @@ public class ReviewServiceImpl implements ReviewService {
 
         return reviewMapper.toResponse(updatedReview);
     }
+
+    @Override
+    @Transactional
+    public void deleteProductReview(String userEmail, UUID productId, UUID reviewId) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new UnauthorizedException("Vui lòng đăng nhập để thực hiện chức năng này."));
+
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy linh kiện với ID: " + productId));
+
+        if (!product.isActive() && user.getRole() != Role.ADMIN) {
+            throw new ResourceNotFoundException("Không tìm thấy linh kiện với ID: " + productId);
+        }
+
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đánh giá với ID: " + reviewId));
+
+        if (review.getProduct() == null || !review.getProduct().getId().equals(productId)) {
+            throw new BadRequestException("Đánh giá này không thuộc về linh kiện đã chỉ định.");
+        }
+
+        boolean isOwner = review.getUser().getId().equals(user.getId());
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+        if (!isOwner && !isAdmin) {
+            throw new AppException("Bạn không có quyền xóa đánh giá của người dùng khác.", HttpStatus.FORBIDDEN);
+        }
+
+        product.removeReview(review);
+        reviewRepository.delete(review);
+        log.info("User {} successfully deleted review {} for product {}", user.getEmail(), reviewId, productId);
+    }
 }
