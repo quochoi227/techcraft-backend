@@ -29,6 +29,10 @@ public class ProductResponse {
     private boolean isActive;
     @Builder.Default
     private List<ProductImageResponse> images = new ArrayList<>();
+    @Builder.Default
+    private List<ReviewResponse> reviews = new ArrayList<>();
+    private Double averageRating;
+    private Integer totalReviews;
     private Instant createdAt;
     private Instant updatedAt;
 }
