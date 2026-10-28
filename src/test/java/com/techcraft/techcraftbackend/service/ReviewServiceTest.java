@@ -788,4 +788,206 @@ class ReviewServiceTest {
         assertEquals("Bạn chỉ có thể đánh giá cấu hình PC sau khi đã mua và nhận hàng thành công.", ex.getMessage());
         verify(reviewRepository, never()).save(any());
     }
+
+    @Test
+    @DisplayName("Cập nhật đánh giá PC Case thành công khi là chính chủ")
+    void updatePcCaseReview_Success() {
+        UUID reviewId = UUID.randomUUID();
+        UpdateReviewRequest request = UpdateReviewRequest.builder()
+                .rating(4)
+                .comment("  Đã dùng 1 tuần, máy chạy rất êm.  ")
+                .build();
+
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .pcCase(testPcCase)
+                .rating(5)
+                .comment("Ban đầu")
+                .build();
+
+        Review updatedReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .pcCase(testPcCase)
+                .rating(4)
+                .comment("Đã dùng 1 tuần, máy chạy rất êm.")
+                .build();
+
+        ReviewResponse expectedResponse = ReviewResponse.builder()
+                .id(reviewId)
+                .userId(userId)
+                .userEmail(testUser.getEmail())
+                .pcCaseId(pcCaseId)
+                .pcCaseName(testPcCase.getName())
+                .rating(4)
+                .comment("Đã dùng 1 tuần, máy chạy rất êm.")
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+        when(reviewRepository.save(existingReview)).thenReturn(updatedReview);
+        when(reviewMapper.toResponse(updatedReview)).thenReturn(expectedResponse);
+
+        ReviewResponse response = reviewService.updatePcCaseReview(testUser.getEmail(), pcCaseId, reviewId, request);
+
+        assertNotNull(response);
+        assertEquals(4, response.getRating());
+        assertEquals("Đã dùng 1 tuần, máy chạy rất êm.", response.getComment());
+        assertEquals(4, existingReview.getRating());
+        assertEquals("Đã dùng 1 tuần, máy chạy rất êm.", existingReview.getComment());
+        verify(reviewRepository).save(existingReview);
+    }
+
+    @Test
+    @DisplayName("Cập nhật đánh giá PC Case thành công với nhận xét trống (comment chuyển thành null)")
+    void updatePcCaseReview_Success_EmptyComment() {
+        UUID reviewId = UUID.randomUUID();
+        UpdateReviewRequest request = UpdateReviewRequest.builder()
+                .rating(3)
+                .comment("   ")
+                .build();
+
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .pcCase(testPcCase)
+                .rating(5)
+                .comment("Ban đầu")
+                .build();
+
+        Review updatedReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .pcCase(testPcCase)
+                .rating(3)
+                .comment(null)
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+        when(reviewRepository.save(existingReview)).thenReturn(updatedReview);
+        when(reviewMapper.toResponse(updatedReview)).thenReturn(ReviewResponse.builder().rating(3).comment(null).build());
+
+        ReviewResponse response = reviewService.updatePcCaseReview(testUser.getEmail(), pcCaseId, reviewId, request);
+
+        assertNotNull(response);
+        assertNull(existingReview.getComment());
+        assertEquals(3, existingReview.getRating());
+        verify(reviewRepository).save(existingReview);
+    }
+
+    @Test
+    @DisplayName("Ném UnauthorizedException khi user không tồn tại trong hệ thống khi cập nhật PC Case review")
+    void updatePcCaseReview_ThrowsUnauthorized_WhenUserNotFound() {
+        UUID reviewId = UUID.randomUUID();
+        UpdateReviewRequest request = UpdateReviewRequest.builder().rating(4).build();
+        when(userRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(UnauthorizedException.class, () ->
+                reviewService.updatePcCaseReview("unknown@example.com", pcCaseId, reviewId, request));
+
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy PC Case khi cập nhật review")
+    void updatePcCaseReview_ThrowsNotFound_WhenPcCaseNotFound() {
+        UUID reviewId = UUID.randomUUID();
+        UpdateReviewRequest request = UpdateReviewRequest.builder().rating(4).build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                reviewService.updatePcCaseReview(testUser.getEmail(), pcCaseId, reviewId, request));
+
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi PC Case bị ẩn và user không phải Admin khi cập nhật review")
+    void updatePcCaseReview_ThrowsNotFound_WhenPcCaseInactiveForUser() {
+        UUID reviewId = UUID.randomUUID();
+        UpdateReviewRequest request = UpdateReviewRequest.builder().rating(4).build();
+        testPcCase.setActive(false);
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                reviewService.updatePcCaseReview(testUser.getEmail(), pcCaseId, reviewId, request));
+
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy bài review cần cập nhật cho PC Case")
+    void updatePcCaseReview_ThrowsNotFound_WhenReviewNotFound() {
+        UUID reviewId = UUID.randomUUID();
+        UpdateReviewRequest request = UpdateReviewRequest.builder().rating(4).build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                reviewService.updatePcCaseReview(testUser.getEmail(), pcCaseId, reviewId, request));
+
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi review không thuộc về PC Case trên URL")
+    void updatePcCaseReview_ThrowsBadRequest_WhenReviewDoesNotMatchPcCase() {
+        UUID reviewId = UUID.randomUUID();
+        UUID otherPcCaseId = UUID.randomUUID();
+        PcCase otherPcCase = PcCase.builder().id(otherPcCaseId).build();
+
+        UpdateReviewRequest request = UpdateReviewRequest.builder().rating(4).build();
+
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .pcCase(otherPcCase)
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                reviewService.updatePcCaseReview(testUser.getEmail(), pcCaseId, reviewId, request));
+
+        assertEquals("Đánh giá này không thuộc về cấu hình PC đã chỉ định.", ex.getMessage());
+        verify(reviewRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Ném AppException (403 Forbidden) khi người dùng cố tình cập nhật đánh giá PC Case của người khác")
+    void updatePcCaseReview_ThrowsForbidden_WhenNotOwner() {
+        UUID reviewId = UUID.randomUUID();
+        User anotherUser = User.builder().id(UUID.randomUUID()).email("another@example.com").build();
+
+        UpdateReviewRequest request = UpdateReviewRequest.builder().rating(4).build();
+
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(anotherUser)
+                .pcCase(testPcCase)
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                reviewService.updatePcCaseReview(testUser.getEmail(), pcCaseId, reviewId, request));
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
+        assertEquals("Bạn không có quyền cập nhật đánh giá của người dùng khác.", ex.getMessage());
+        verify(reviewRepository, never()).save(any());
+    }
 }
