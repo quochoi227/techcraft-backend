@@ -219,4 +219,35 @@ public class ReviewServiceImpl implements ReviewService {
 
         return reviewMapper.toResponse(updatedReview);
     }
+
+    @Override
+    @Transactional
+    public void deletePcCaseReview(String userEmail, UUID pcCaseId, UUID reviewId) {
+        User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new UnauthorizedException("Vui lòng đăng nhập để thực hiện chức năng này."));
+
+        PcCase pcCase = pcCaseRepository.findById(pcCaseId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + pcCaseId));
+
+        if (!pcCase.isActive() && user.getRole() != Role.ADMIN) {
+            throw new ResourceNotFoundException("Không tìm thấy cấu hình PC với ID: " + pcCaseId);
+        }
+
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đánh giá với ID: " + reviewId));
+
+        if (review.getPcCase() == null || !review.getPcCase().getId().equals(pcCaseId)) {
+            throw new BadRequestException("Đánh giá này không thuộc về cấu hình PC đã chỉ định.");
+        }
+
+        boolean isOwner = review.getUser().getId().equals(user.getId());
+        boolean isAdmin = user.getRole() == Role.ADMIN;
+        if (!isOwner && !isAdmin) {
+            throw new AppException("Bạn không có quyền xóa đánh giá của người dùng khác.", HttpStatus.FORBIDDEN);
+        }
+
+        pcCase.removeReview(review);
+        reviewRepository.delete(review);
+        log.info("User {} successfully deleted review {} for PC Case {}", user.getEmail(), reviewId, pcCaseId);
+    }
 }

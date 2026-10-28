@@ -990,4 +990,155 @@ class ReviewServiceTest {
         assertEquals("Bạn không có quyền cập nhật đánh giá của người dùng khác.", ex.getMessage());
         verify(reviewRepository, never()).save(any());
     }
+
+    @Test
+    @DisplayName("Xóa đánh giá PC Case thành công khi là chủ sở hữu")
+    void deletePcCaseReview_Success_AsOwner() {
+        UUID reviewId = UUID.randomUUID();
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .pcCase(testPcCase)
+                .rating(4)
+                .build();
+        testPcCase.addReview(existingReview);
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+
+        reviewService.deletePcCaseReview(testUser.getEmail(), pcCaseId, reviewId);
+
+        verify(reviewRepository).delete(existingReview);
+        assertFalse(testPcCase.getReviews().contains(existingReview));
+    }
+
+    @Test
+    @DisplayName("Admin xóa đánh giá PC Case của người dùng khác thành công")
+    void deletePcCaseReview_Success_AsAdmin() {
+        UUID reviewId = UUID.randomUUID();
+        User adminUser = User.builder()
+                .id(UUID.randomUUID())
+                .email("admin@example.com")
+                .role(Role.ADMIN)
+                .build();
+
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .pcCase(testPcCase)
+                .rating(1)
+                .comment("Spam review")
+                .build();
+        testPcCase.addReview(existingReview);
+
+        when(userRepository.findByEmail(adminUser.getEmail())).thenReturn(Optional.of(adminUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+
+        reviewService.deletePcCaseReview(adminUser.getEmail(), pcCaseId, reviewId);
+
+        verify(reviewRepository).delete(existingReview);
+        assertFalse(testPcCase.getReviews().contains(existingReview));
+    }
+
+    @Test
+    @DisplayName("Ném UnauthorizedException khi user không tồn tại trong hệ thống khi xóa review PC Case")
+    void deletePcCaseReview_ThrowsUnauthorized_WhenUserNotFound() {
+        UUID reviewId = UUID.randomUUID();
+        when(userRepository.findByEmail("unknown@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(UnauthorizedException.class, () ->
+                reviewService.deletePcCaseReview("unknown@example.com", pcCaseId, reviewId));
+
+        verify(reviewRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy PC Case khi xóa review")
+    void deletePcCaseReview_ThrowsNotFound_WhenPcCaseNotFound() {
+        UUID reviewId = UUID.randomUUID();
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                reviewService.deletePcCaseReview(testUser.getEmail(), pcCaseId, reviewId));
+
+        verify(reviewRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi PC Case bị ẩn và user không phải Admin khi xóa review")
+    void deletePcCaseReview_ThrowsNotFound_WhenPcCaseInactiveAndUserNotAdmin() {
+        UUID reviewId = UUID.randomUUID();
+        testPcCase.setActive(false);
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                reviewService.deletePcCaseReview(testUser.getEmail(), pcCaseId, reviewId));
+
+        verify(reviewRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Ném ResourceNotFoundException khi không tìm thấy đánh giá PC Case cần xóa")
+    void deletePcCaseReview_ThrowsNotFound_WhenReviewNotFound() {
+        UUID reviewId = UUID.randomUUID();
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () ->
+                reviewService.deletePcCaseReview(testUser.getEmail(), pcCaseId, reviewId));
+
+        verify(reviewRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Ném BadRequestException khi review không thuộc về PC Case chỉ định khi xóa review")
+    void deletePcCaseReview_ThrowsBadRequest_WhenReviewDoesNotMatchPcCase() {
+        UUID reviewId = UUID.randomUUID();
+        PcCase otherPcCase = PcCase.builder().id(UUID.randomUUID()).build();
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(testUser)
+                .pcCase(otherPcCase)
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+
+        BadRequestException ex = assertThrows(BadRequestException.class, () ->
+                reviewService.deletePcCaseReview(testUser.getEmail(), pcCaseId, reviewId));
+
+        assertEquals("Đánh giá này không thuộc về cấu hình PC đã chỉ định.", ex.getMessage());
+        verify(reviewRepository, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("Ném AppException (403 Forbidden) khi người dùng cố tình xóa đánh giá PC Case của người khác")
+    void deletePcCaseReview_ThrowsForbidden_WhenNotOwnerAndNotAdmin() {
+        UUID reviewId = UUID.randomUUID();
+        User anotherUser = User.builder().id(UUID.randomUUID()).email("another@example.com").build();
+
+        Review existingReview = Review.builder()
+                .id(reviewId)
+                .user(anotherUser)
+                .pcCase(testPcCase)
+                .build();
+
+        when(userRepository.findByEmail(testUser.getEmail())).thenReturn(Optional.of(testUser));
+        when(pcCaseRepository.findById(pcCaseId)).thenReturn(Optional.of(testPcCase));
+        when(reviewRepository.findById(reviewId)).thenReturn(Optional.of(existingReview));
+
+        AppException ex = assertThrows(AppException.class, () ->
+                reviewService.deletePcCaseReview(testUser.getEmail(), pcCaseId, reviewId));
+
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
+        assertEquals("Bạn không có quyền xóa đánh giá của người dùng khác.", ex.getMessage());
+        verify(reviewRepository, never()).delete(any());
+    }
 }

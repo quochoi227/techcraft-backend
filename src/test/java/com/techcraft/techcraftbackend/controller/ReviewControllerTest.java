@@ -659,4 +659,80 @@ class ReviewControllerTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value("Đánh giá này không thuộc về cấu hình PC đã chỉ định."));
     }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Xóa đánh giá PC Case thành công khi người dùng là chủ sở hữu (200 OK)")
+    void deletePcCaseReview_AsOwner_Returns200Ok() throws Exception {
+        UUID pcCaseId = UUID.randomUUID();
+        UUID reviewId = UUID.randomUUID();
+
+        doNothing().when(reviewService).deletePcCaseReview("user@example.com", pcCaseId, reviewId);
+
+        mockMvc.perform(delete("/api/pc-cases/{id}/reviews/{reviewId}", pcCaseId, reviewId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.message").value("Xoá đánh giá cấu hình PC thành công!"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        verify(reviewService).deletePcCaseReview("user@example.com", pcCaseId, reviewId);
+    }
+
+    @Test
+    @DisplayName("Chưa đăng nhập khi xóa đánh giá PC Case -> Trả về 401 Unauthorized")
+    void deletePcCaseReview_Unauthenticated_Returns401Unauthorized() throws Exception {
+        UUID pcCaseId = UUID.randomUUID();
+        UUID reviewId = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/pc-cases/{id}/reviews/{reviewId}", pcCaseId, reviewId))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Trả về 403 Forbidden khi người dùng cố tình xóa đánh giá PC Case của người khác")
+    void deletePcCaseReview_WhenNotOwner_Returns403Forbidden() throws Exception {
+        UUID pcCaseId = UUID.randomUUID();
+        UUID reviewId = UUID.randomUUID();
+
+        doThrow(new AppException("Bạn không có quyền xóa đánh giá của người dùng khác.", HttpStatus.FORBIDDEN))
+                .when(reviewService).deletePcCaseReview("user@example.com", pcCaseId, reviewId);
+
+        mockMvc.perform(delete("/api/pc-cases/{id}/reviews/{reviewId}", pcCaseId, reviewId))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Bạn không có quyền xóa đánh giá của người dùng khác."));
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Trả về 404 Not Found khi không tìm thấy đánh giá PC Case cần xóa")
+    void deletePcCaseReview_WhenNotFound_Returns404NotFound() throws Exception {
+        UUID pcCaseId = UUID.randomUUID();
+        UUID reviewId = UUID.randomUUID();
+
+        doThrow(new ResourceNotFoundException("Không tìm thấy đánh giá với ID: " + reviewId))
+                .when(reviewService).deletePcCaseReview("user@example.com", pcCaseId, reviewId);
+
+        mockMvc.perform(delete("/api/pc-cases/{id}/reviews/{reviewId}", pcCaseId, reviewId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Không tìm thấy đánh giá với ID: " + reviewId));
+    }
+
+    @Test
+    @WithMockUser(username = "user@example.com", roles = "USER")
+    @DisplayName("Trả về 400 Bad Request khi review không thuộc cấu hình PC trên URL khi xóa review")
+    void deletePcCaseReview_WhenMismatchPcCase_Returns400BadRequest() throws Exception {
+        UUID pcCaseId = UUID.randomUUID();
+        UUID reviewId = UUID.randomUUID();
+
+        doThrow(new BadRequestException("Đánh giá này không thuộc về cấu hình PC đã chỉ định."))
+                .when(reviewService).deletePcCaseReview("user@example.com", pcCaseId, reviewId);
+
+        mockMvc.perform(delete("/api/pc-cases/{id}/reviews/{reviewId}", pcCaseId, reviewId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value("Đánh giá này không thuộc về cấu hình PC đã chỉ định."));
+    }
 }
