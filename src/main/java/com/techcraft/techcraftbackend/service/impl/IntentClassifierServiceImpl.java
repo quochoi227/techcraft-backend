@@ -35,10 +35,10 @@ public class IntentClassifierServiceImpl implements IntentClassifierService {
     );
 
     private static final List<String> PC_BUILD_INTENT_KEYWORDS = List.of(
-            "cau hinh", "build", "ngan sach", "trieu", "tr", "lap may", "tu van may",
+            "cau hinh", "build", "ngan sach", "trieu", "lap may", "tu van may",
             "tu van pc", "tu van case", "choi game", "render", "edit video", "photoshop",
             "autocad", "fo4", "lol", "valorant", "csgo", "genshin", "wukong", "case pc",
-            "mua pc", "mua may", "dan may"
+            "mua pc", "mua may", "dan may", "pc case"
     );
 
     private static final List<String> GENERAL_GREETINGS = List.of(
