@@ -688,8 +688,8 @@ jwt.refresh-token-expiry-days: 30
 
 # Google Gemini
 gemini.api-key: <api-key>
-gemini.embedding-model: text-embedding-004
-gemini.chat-model: gemini-1.5-flash
+gemini.embedding-model: gemini-embedding-2
+gemini.chat-model: gemini-3.5-flash-lite
 
 # Cloudinary (hoặc AWS S3)
 cloudinary.cloud-name: <cloud-name>
@@ -697,7 +697,7 @@ cloudinary.api-key: <api-key>
 cloudinary.api-secret: <api-secret>
 
 # pgvector
-pgvector.embedding-dimension: 768
+pgvector.embedding-dimension: 3072
 pgvector.top-k: 5
 
 # Resend (Email Service)
@@ -728,9 +728,9 @@ VITE_API_BASE_URL=http://localhost:8080/api
 - [ ] Implement CRUD Products (API + UI)
 - [ ] Implement Cart & Order (API + UI)
 - [ ] Implement PC Case management + Compatibility Checker
-- [ ] Implement RAG pipeline (embedding + vector search)
+- [x] Implement RAG pipeline (embedding + vector search)
 - [ ] Implement Chatbot UI + API
-- [ ] Implement PC Config Suggestion (query DB + prompt Gemini)
+- [x] Implement PC Config Suggestion (query DB + prompt Gemini)
 - [x] Implement Image Upload (Cloudinary / S3)
 - [ ] Implement Product Reviews (API + UI — đánh giá, chấm sao)
 - [ ] Implement Admin Statistics Dashboard (API + UI — doanh thu, đơn hàng, top sản phẩm, người dùng mới)
