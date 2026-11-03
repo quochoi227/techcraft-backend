@@ -48,6 +48,10 @@ public class User {
     @Builder.Default
     private boolean emailVerified = false;
 
+    @Column(name = "active", nullable = false)
+    @Builder.Default
+    private boolean active = true;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

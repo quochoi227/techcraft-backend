@@ -72,6 +72,7 @@ public class AuthServiceImpl implements AuthService {
                 .address(request.getAddress() != null ? request.getAddress().trim() : null)
                 .role(Role.USER)
                 .emailVerified(false)
+                .active(true)
                 .build();
 
         User savedUser = userRepository.save(user);
@@ -135,6 +136,10 @@ public class AuthServiceImpl implements AuthService {
             throw new AppException("Tài khoản chưa được xác thực email. Vui lòng kiểm tra email để kích hoạt tài khoản.", HttpStatus.FORBIDDEN);
         }
 
+        if (!user.isActive()) {
+            throw new AppException("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.", HttpStatus.FORBIDDEN);
+        }
+
         String accessToken = jwtUtils.generateAccessToken(user);
 
         String refreshTokenString = UUID.randomUUID().toString();
@@ -193,6 +198,9 @@ public class AuthServiceImpl implements AuthService {
         }
 
         User user = tokenEntity.getUser();
+        if (!user.isActive()) {
+            throw new UnauthorizedException("Tài khoản đã bị vô hiệu hóa.");
+        }
 
         // Chỉ tạo Access Token mới
         String newAccessToken = jwtUtils.generateAccessToken(user);

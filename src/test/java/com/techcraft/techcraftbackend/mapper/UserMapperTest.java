@@ -1,6 +1,7 @@
 package com.techcraft.techcraftbackend.mapper;
 
 import com.techcraft.techcraftbackend.dto.response.RegisterResponse;
+import com.techcraft.techcraftbackend.dto.response.UserResponse;
 import com.techcraft.techcraftbackend.dto.response.UserSummaryResponse;
 import com.techcraft.techcraftbackend.entity.User;
 import com.techcraft.techcraftbackend.enums.Role;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mapstruct.factory.Mappers;
 
+import java.time.Instant;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,6 +34,7 @@ class UserMapperTest {
                 .address("123 Đường ABC, Hà Nội")
                 .role(Role.USER)
                 .emailVerified(false)
+                .active(true)
                 .build();
 
         RegisterResponse response = userMapper.toRegisterResponse(user);
@@ -62,6 +65,7 @@ class UserMapperTest {
                 .address("456 Đường XYZ, TP.HCM")
                 .role(Role.ADMIN)
                 .emailVerified(true)
+                .active(true)
                 .build();
 
         UserSummaryResponse response = userMapper.toUserSummaryResponse(user);
@@ -74,10 +78,48 @@ class UserMapperTest {
         assertEquals("456 Đường XYZ, TP.HCM", response.getAddress());
         assertEquals(Role.ADMIN, response.getRole());
         assertTrue(response.isEmailVerified());
+        assertTrue(response.isActive());
     }
 
     @Test
     void toUserSummaryResponse_NullInput_ReturnsNull() {
         assertNull(userMapper.toUserSummaryResponse(null));
+    }
+
+    @Test
+    void toUserResponse_Success() {
+        UUID id = UUID.randomUUID();
+        Instant now = Instant.now();
+        User user = User.builder()
+                .id(id)
+                .email("user@techcraft.com")
+                .fullName("Lê Văn User")
+                .phone("0909090909")
+                .address("789 Phố Công Nghệ")
+                .role(Role.USER)
+                .emailVerified(true)
+                .active(false)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
+
+        UserResponse response = userMapper.toUserResponse(user);
+
+        assertNotNull(response);
+        assertEquals(id, response.getId());
+        assertEquals("user@techcraft.com", response.getEmail());
+        assertEquals("Lê Văn User", response.getFullName());
+        assertEquals("0909090909", response.getPhone());
+        assertEquals("789 Phố Công Nghệ", response.getAddress());
+        assertEquals(Role.USER, response.getRole());
+        assertTrue(response.isEmailVerified());
+        assertFalse(response.isActive());
+        assertEquals(now, response.getCreatedAt());
+        assertEquals(now, response.getUpdatedAt());
+    }
+
+    @Test
+    void toUserResponse_NullInput_ReturnsNull() {
+        assertNull(userMapper.toUserResponse(null));
     }
 }

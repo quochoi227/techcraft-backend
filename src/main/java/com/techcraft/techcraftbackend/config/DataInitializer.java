@@ -56,6 +56,7 @@ public class DataInitializer implements CommandLineRunner {
                     log.info("User with email '{}' already exists without ADMIN role. Promoting to ADMIN.", normalizedEmail);
                     existingUser.setRole(Role.ADMIN);
                     existingUser.setEmailVerified(true);
+                    existingUser.setActive(true);
                     userRepository.save(existingUser);
                     log.info("Successfully promoted user '{}' to ADMIN role.", normalizedEmail);
                 },
@@ -68,6 +69,7 @@ public class DataInitializer implements CommandLineRunner {
                             .phone(adminPhone != null ? adminPhone.trim() : null)
                             .role(Role.ADMIN)
                             .emailVerified(true)
+                            .active(true)
                             .build();
 
                     userRepository.save(admin);

@@ -119,6 +119,8 @@ users (
   phone VARCHAR,
   address TEXT,
   role ENUM('GUEST', 'USER', 'ADMIN') DEFAULT 'USER',
+  email_verified BOOLEAN DEFAULT FALSE,
+  active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP,
   updated_at TIMESTAMP
 )
