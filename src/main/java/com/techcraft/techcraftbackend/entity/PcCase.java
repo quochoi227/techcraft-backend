@@ -13,7 +13,16 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "pc_cases")
+@Table(
+        name = "pc_cases",
+        indexes = {
+                @Index(name = "idx_pc_cases_is_active", columnList = "is_active"),
+                @Index(name = "idx_pc_cases_use_case", columnList = "use_case"),
+                @Index(name = "idx_pc_cases_total_price", columnList = "total_price"),
+                @Index(name = "idx_pc_cases_created_at", columnList = "created_at"),
+                @Index(name = "idx_pc_cases_active_created", columnList = "is_active, created_at DESC")
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor

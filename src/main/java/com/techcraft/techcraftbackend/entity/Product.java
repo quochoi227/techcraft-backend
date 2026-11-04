@@ -17,7 +17,17 @@ import java.util.Map;
 import java.util.UUID;
 
 @Entity
-@Table(name = "products")
+@Table(
+        name = "products",
+        indexes = {
+                @Index(name = "idx_products_is_active", columnList = "is_active"),
+                @Index(name = "idx_products_category", columnList = "category"),
+                @Index(name = "idx_products_price", columnList = "price"),
+                @Index(name = "idx_products_stock_quantity", columnList = "stock_quantity"),
+                @Index(name = "idx_products_active_category", columnList = "is_active, category")
+        }
+)
+@BatchSize(size = 50)
 @Getter
 @Setter
 @NoArgsConstructor
