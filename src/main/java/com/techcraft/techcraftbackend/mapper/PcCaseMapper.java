@@ -5,6 +5,7 @@ import com.techcraft.techcraftbackend.dto.response.PcCaseResponse;
 import com.techcraft.techcraftbackend.entity.PcCase;
 import com.techcraft.techcraftbackend.entity.PcCaseItem;
 import com.techcraft.techcraftbackend.entity.Review;
+import org.hibernate.Hibernate;
 import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -19,11 +20,16 @@ public interface PcCaseMapper {
     PcCaseResponse toResponse(PcCase pcCase);
 
     @Mapping(target = "productId", source = "product.id")
-    @Mapping(target = "product", source = "product")
+    @Mapping(target = "product", source = "product", qualifiedByName = "toComponentResponse")
     PcCaseItemResponse toItemResponse(PcCaseItem item);
 
     @AfterMapping
     default void calculateReviewStats(PcCase pcCase, @MappingTarget PcCaseResponse response) {
+        if (!Hibernate.isInitialized(pcCase.getReviews())) {
+            response.setAverageRating(0.0);
+            response.setTotalReviews(0);
+            return;
+        }
         if (pcCase.getReviews() == null || pcCase.getReviews().isEmpty()) {
             response.setAverageRating(0.0);
             response.setTotalReviews(0);

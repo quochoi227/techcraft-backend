@@ -8,7 +8,13 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "product_images")
+@Table(
+        name = "product_images",
+        indexes = {
+                @Index(name = "idx_product_images_product_id", columnList = "product_id"),
+                @Index(name = "idx_product_images_prod_primary", columnList = "product_id, is_primary")
+        }
+)
 @Getter
 @Setter
 @NoArgsConstructor

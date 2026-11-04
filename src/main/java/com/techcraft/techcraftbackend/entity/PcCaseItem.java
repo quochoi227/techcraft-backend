@@ -11,6 +11,10 @@ import java.util.UUID;
         name = "pc_case_items",
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_pc_case_items_case_category", columnNames = {"pc_case_id", "category"})
+        },
+        indexes = {
+                @Index(name = "idx_pc_case_items_product_id", columnList = "product_id"),
+                @Index(name = "idx_pc_case_items_pc_case_id", columnList = "pc_case_id")
         }
 )
 @Getter
