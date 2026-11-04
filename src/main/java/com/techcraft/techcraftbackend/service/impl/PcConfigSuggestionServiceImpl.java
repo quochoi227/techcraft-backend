@@ -60,24 +60,24 @@ public class PcConfigSuggestionServiceImpl implements PcConfigSuggestionService 
                 sb.append("Mô tả: ").append(pcCase.getDescription().trim()).append("\n");
             }
 
-            sb.append("Chi tiết linh kiện:\n");
-            if (pcCase.getItems() != null) {
-                for (PcCaseItem item : pcCase.getItems()) {
-                    Product prod = item.getProduct();
-                    if (prod != null) {
-                        sb.append("  - ").append(item.getCategory()).append(": ")
-                                .append(prod.getName());
-                        if (prod.getPrice() != null) {
-                            sb.append(" (").append(CURRENCY_FORMAT.format(prod.getPrice())).append(" VND)");
-                        }
-                        String keySpecs = extractKeySpecs(prod.getDetail());
-                        if (!keySpecs.isBlank()) {
-                            sb.append(" [").append(keySpecs).append("]");
-                        }
-                        sb.append("\n");
-                    }
-                }
-            }
+//            sb.append("Chi tiết linh kiện:\n");
+//            if (pcCase.getItems() != null) {
+//                for (PcCaseItem item : pcCase.getItems()) {
+//                    Product prod = item.getProduct();
+//                    if (prod != null) {
+//                        sb.append("  - ").append(item.getCategory()).append(": ")
+//                                .append(prod.getName());
+//                        if (prod.getPrice() != null) {
+//                            sb.append(" (").append(CURRENCY_FORMAT.format(prod.getPrice())).append(" VND)");
+//                        }
+//                        String keySpecs = extractKeySpecs(prod.getDetail());
+//                        if (!keySpecs.isBlank()) {
+//                            sb.append(" [").append(keySpecs).append("]");
+//                        }
+//                        sb.append("\n");
+//                    }
+//                }
+//            }
         }
 
         return sb.toString();
