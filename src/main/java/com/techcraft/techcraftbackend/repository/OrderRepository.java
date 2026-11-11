@@ -25,6 +25,7 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
 
     @Query("SELECT o FROM Order o " +
            "JOIN FETCH o.user u " +
+           "LEFT JOIN FETCH o.voucher v " +
            "LEFT JOIN FETCH o.items i " +
            "LEFT JOIN FETCH i.product p " +
            "LEFT JOIN FETCH i.pcCase pc " +

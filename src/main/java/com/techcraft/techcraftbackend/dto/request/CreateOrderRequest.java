@@ -22,5 +22,7 @@ public class CreateOrderRequest {
 
     private String note;
 
+    private String voucherCode;
+
     private List<@Valid CreateOrderItemRequest> items;
 }
