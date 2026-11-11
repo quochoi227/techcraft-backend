@@ -17,6 +17,7 @@ import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
 import com.techcraft.techcraftbackend.mapper.OrderMapper;
 import com.techcraft.techcraftbackend.repository.*;
 import com.techcraft.techcraftbackend.service.OrderService;
+import com.techcraft.techcraftbackend.service.VoucherService;
 import com.techcraft.techcraftbackend.specification.OrderSpecification;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -41,6 +42,7 @@ public class OrderServiceImpl implements OrderService {
     private final ProductRepository productRepository;
     private final PcCaseRepository pcCaseRepository;
     private final CartItemRepository cartItemRepository;
+    private final VoucherService voucherService;
     private final OrderMapper orderMapper;
 
     @Override
@@ -99,6 +101,7 @@ public class OrderServiceImpl implements OrderService {
 
         if (newStatus == OrderStatus.CANCELLED) {
             restoreOrderStock(order);
+            voucherService.restoreVoucherUsage(order);
         }
 
         order.setStatus(newStatus);
@@ -324,6 +327,9 @@ public class OrderServiceImpl implements OrderService {
         // Hoàn lại số lượng tồn kho của các sản phẩm và linh kiện PC Case
         restoreOrderStock(order);
 
+        // Hoàn lại lượt sử dụng voucher nếu đơn hàng có áp dụng voucher
+        voucherService.restoreVoucherUsage(order);
+
         // Chuyển trạng thái đơn hàng sang CANCELLED
         order.setStatus(OrderStatus.CANCELLED);
         Order savedOrder = orderRepository.save(order);
@@ -490,7 +496,7 @@ public class OrderServiceImpl implements OrderService {
                 .totalAmount(BigDecimal.ZERO)
                 .build();
 
-        BigDecimal totalAmount = BigDecimal.ZERO;
+        BigDecimal subtotalAmount = BigDecimal.ZERO;
 
         for (Map.Entry<UUID, Integer> entry : productQuantities.entrySet()) {
             Product product = productsMap.get(entry.getKey());
@@ -505,7 +511,7 @@ public class OrderServiceImpl implements OrderService {
                     .build();
 
             order.addItem(orderItem);
-            totalAmount = totalAmount.add(unitPrice.multiply(BigDecimal.valueOf(quantity)));
+            subtotalAmount = subtotalAmount.add(unitPrice.multiply(BigDecimal.valueOf(quantity)));
         }
 
         for (Map.Entry<UUID, Integer> entry : pcCaseQuantities.entrySet()) {
@@ -521,10 +527,18 @@ public class OrderServiceImpl implements OrderService {
                     .build();
 
             order.addItem(orderItem);
-            totalAmount = totalAmount.add(unitPrice.multiply(BigDecimal.valueOf(quantity)));
+            subtotalAmount = subtotalAmount.add(unitPrice.multiply(BigDecimal.valueOf(quantity)));
         }
 
-        order.setTotalAmount(totalAmount);
+        // 8.1 Áp dụng voucher giảm giá nếu có
+        if (request != null && request.getVoucherCode() != null && !request.getVoucherCode().isBlank()) {
+            voucherService.applyVoucherToOrder(request.getVoucherCode(), subtotalAmount, user, order);
+        } else {
+            order.setSubtotalAmount(subtotalAmount);
+            order.setDiscountAmount(BigDecimal.ZERO);
+            order.setTotalAmount(subtotalAmount);
+        }
+
         Order savedOrder = orderRepository.save(order);
 
         // 9. Dọn dẹp giỏ hàng

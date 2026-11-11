@@ -17,6 +17,9 @@ public interface OrderMapper {
     @Mapping(target = "userEmail", source = "user.email")
     @Mapping(target = "userFullName", source = "user.fullName")
     @Mapping(target = "userPhone", source = "user.phone")
+    @Mapping(target = "subtotalAmount", expression = "java(resolveSubtotalAmount(order))")
+    @Mapping(target = "discountAmount", expression = "java(resolveDiscountAmount(order))")
+    @Mapping(target = "voucherCode", source = "voucherCode")
     @Mapping(target = "totalQuantity", expression = "java(calculateTotalQuantity(order))")
     @Mapping(target = "items", source = "items")
     OrderResponse toResponse(Order order);
@@ -33,6 +36,23 @@ public interface OrderMapper {
     @Mapping(target = "pcCase", source = "pcCase")
     @Mapping(target = "subtotal", expression = "java(calculateSubtotal(item))")
     OrderItemResponse toItemResponse(OrderItem item);
+
+    default BigDecimal resolveSubtotalAmount(Order order) {
+        if (order == null) {
+            return null;
+        }
+        if (order.getSubtotalAmount() != null) {
+            return order.getSubtotalAmount();
+        }
+        return order.getTotalAmount();
+    }
+
+    default BigDecimal resolveDiscountAmount(Order order) {
+        if (order == null) {
+            return BigDecimal.ZERO;
+        }
+        return order.getDiscountAmount() != null ? order.getDiscountAmount() : BigDecimal.ZERO;
+    }
 
     default String resolveItemType(OrderItem item) {
         if (item == null) {

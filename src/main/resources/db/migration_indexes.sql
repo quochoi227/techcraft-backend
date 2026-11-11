@@ -25,10 +25,24 @@ CREATE INDEX IF NOT EXISTS idx_pc_case_items_pc_case_id ON pc_case_items(pc_case
 CREATE INDEX IF NOT EXISTS idx_product_images_product_id ON product_images(product_id);
 CREATE INDEX IF NOT EXISTS idx_product_images_prod_primary ON product_images(product_id, is_primary);
 
+-- 5. Bảng vouchers (Mã giảm giá)
+CREATE INDEX IF NOT EXISTS idx_vouchers_code ON vouchers(code);
+CREATE INDEX IF NOT EXISTS idx_vouchers_active_dates ON vouchers(is_active, start_date, end_date);
+CREATE INDEX IF NOT EXISTS idx_vouchers_created_at ON vouchers(created_at DESC);
+
+-- 6. Bảng voucher_usages (Lịch sử sử dụng mã giảm giá)
+CREATE INDEX IF NOT EXISTS idx_voucher_usages_user_voucher ON voucher_usages(user_id, voucher_id);
+CREATE INDEX IF NOT EXISTS idx_voucher_usages_order_id ON voucher_usages(order_id);
+CREATE INDEX IF NOT EXISTS idx_voucher_usages_voucher_id ON voucher_usages(voucher_id);
+
+-- 7. Cập nhật dữ liệu cũ cho bảng orders (nếu chưa có subtotal_amount)
+UPDATE orders SET subtotal_amount = total_amount WHERE subtotal_amount IS NULL;
+UPDATE orders SET discount_amount = 0 WHERE discount_amount IS NULL;
+
 -- ====================================================================
 -- Kiểm tra các index vừa tạo
 -- ====================================================================
 SELECT tablename, indexname, indexdef
 FROM pg_indexes
-WHERE tablename IN ('pc_cases', 'products', 'pc_case_items', 'product_images')
+WHERE tablename IN ('pc_cases', 'products', 'pc_case_items', 'product_images', 'vouchers', 'voucher_usages')
 ORDER BY tablename, indexname;
