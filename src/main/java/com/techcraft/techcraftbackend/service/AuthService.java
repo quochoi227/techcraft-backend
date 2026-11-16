@@ -1,7 +1,9 @@
 package com.techcraft.techcraftbackend.service;
 
+import com.techcraft.techcraftbackend.dto.request.ForgotPasswordRequest;
 import com.techcraft.techcraftbackend.dto.request.LoginRequest;
 import com.techcraft.techcraftbackend.dto.request.RegisterRequest;
+import com.techcraft.techcraftbackend.dto.request.ResetPasswordRequest;
 import com.techcraft.techcraftbackend.dto.response.LoginResponse;
 import com.techcraft.techcraftbackend.dto.response.RefreshTokenResponse;
 import com.techcraft.techcraftbackend.dto.response.RegisterResponse;
@@ -18,4 +20,8 @@ public interface AuthService {
     void logout(String refreshTokenString, HttpServletResponse response);
 
     RefreshTokenResponse refreshToken(String refreshTokenString, HttpServletResponse response);
+
+    void forgotPassword(ForgotPasswordRequest request);
+
+    void resetPassword(ResetPasswordRequest request);
 }

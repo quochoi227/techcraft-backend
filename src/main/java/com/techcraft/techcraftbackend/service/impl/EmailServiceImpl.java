@@ -87,4 +87,57 @@ public class EmailServiceImpl implements EmailService {
             throw new AppException("Không thể gửi email xác thực. Vui lòng thử lại sau.", HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @Override
+    public void sendPasswordResetEmail(String toEmail, String recipientName, String token) {
+        String resetPasswordUrl = frontendUrl + "/reset-password?token=" + token;
+
+        String formattedFrom = (fromEmailName != null && !fromEmailName.isBlank())
+                ? String.format("%s <%s>", fromEmailName.replace("'", "").trim(), fromEmail)
+                : fromEmail;
+
+        String subject = "[PC Shop] Yêu cầu đặt lại mật khẩu của bạn";
+
+        String htmlContent = """
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+                <h2 style="color: #2563eb; text-align: center;">Yêu cầu đặt lại mật khẩu</h2>
+                <p>Xin chào <strong>%s</strong>,</p>
+                <p>Chúng tôi đã nhận được yêu cầu đặt lại mật khẩu cho tài khoản PC Shop của bạn.</p>
+                <p>Vui lòng nhấn vào nút bên dưới để tiến hành tạo mật khẩu mới:</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="%s" style="background-color: #2563eb; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">
+                        Đặt lại mật khẩu
+                    </a>
+                </div>
+                <p style="color: #64748b; font-size: 14px;">Hoặc bạn có thể truy cập trực tiếp đường link sau:</p>
+                <p style="word-break: break-all; font-size: 13px; color: #2563eb;"><a href="%s">%s</a></p>
+                <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;" />
+                <p style="color: #94a3b8; font-size: 12px; text-align: center;">
+                    Liên kết này sẽ hết hạn sau 1 giờ.<br/>
+                    Nếu bạn không thực hiện yêu cầu này, vui lòng bỏ qua email và bảo mật tài khoản của bạn.
+                </p>
+            </div>
+            """.formatted(
+                recipientName != null ? recipientName : "Quý khách",
+                resetPasswordUrl,
+                resetPasswordUrl,
+                resetPasswordUrl
+        );
+
+        CreateEmailOptions params = CreateEmailOptions.builder()
+                .from(formattedFrom)
+                .to(toEmail)
+                .subject(subject)
+                .html(htmlContent)
+                .build();
+
+        try {
+            log.info("Sending password reset email to: {}", toEmail);
+            CreateEmailResponse response = resend.emails().send(params);
+            log.info("Password reset email sent successfully with id: {}", response.getId());
+        } catch (ResendException e) {
+            log.error("Failed to send password reset email to {}: {}", toEmail, e.getMessage(), e);
+            throw new AppException("Không thể gửi email đặt lại mật khẩu. Vui lòng thử lại sau.", HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }
