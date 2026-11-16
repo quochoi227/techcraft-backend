@@ -16,6 +16,7 @@ import com.techcraft.techcraftbackend.exception.BadRequestException;
 import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
 import com.techcraft.techcraftbackend.mapper.OrderMapper;
 import com.techcraft.techcraftbackend.repository.*;
+import com.techcraft.techcraftbackend.service.NotificationService;
 import com.techcraft.techcraftbackend.service.OrderService;
 import com.techcraft.techcraftbackend.service.VoucherService;
 import com.techcraft.techcraftbackend.specification.OrderSpecification;
@@ -44,6 +45,7 @@ public class OrderServiceImpl implements OrderService {
     private final CartItemRepository cartItemRepository;
     private final VoucherService voucherService;
     private final OrderMapper orderMapper;
+    private final NotificationService notificationService;
 
     @Override
     public OrderResponse createOrder(String email, CreateOrderRequest request) {
@@ -106,6 +108,8 @@ public class OrderServiceImpl implements OrderService {
 
         order.setStatus(newStatus);
         Order savedOrder = orderRepository.save(order);
+
+        notificationService.notifyUserOrderStatusChanged(savedOrder, currentStatus, newStatus);
 
         return orderMapper.toResponse(savedOrder);
     }
@@ -334,6 +338,10 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus(OrderStatus.CANCELLED);
         Order savedOrder = orderRepository.save(order);
 
+        if (!isAdmin) {
+            notificationService.notifyAdminOrderCancelled(savedOrder, user);
+        }
+
         return orderMapper.toResponse(savedOrder);
     }
 
@@ -548,6 +556,8 @@ public class OrderServiceImpl implements OrderService {
             productQuantities.keySet().forEach(pId -> cartItemRepository.deleteByUserIdAndProductId(user.getId(), pId));
             pcCaseQuantities.keySet().forEach(cId -> cartItemRepository.deleteByUserIdAndPcCaseId(user.getId(), cId));
         }
+
+        notificationService.notifyAdminOrderCreated(savedOrder);
 
         return orderMapper.toResponse(savedOrder);
     }
