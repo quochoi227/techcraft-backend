@@ -1,8 +1,10 @@
 package com.techcraft.techcraftbackend.controller;
 
 import com.techcraft.techcraftbackend.dto.ApiResponse;
+import com.techcraft.techcraftbackend.dto.request.ForgotPasswordRequest;
 import com.techcraft.techcraftbackend.dto.request.LoginRequest;
 import com.techcraft.techcraftbackend.dto.request.RegisterRequest;
+import com.techcraft.techcraftbackend.dto.request.ResetPasswordRequest;
 import com.techcraft.techcraftbackend.dto.response.LoginResponse;
 import com.techcraft.techcraftbackend.dto.response.RefreshTokenResponse;
 import com.techcraft.techcraftbackend.dto.response.RegisterResponse;
@@ -58,5 +60,17 @@ public class AuthController {
             HttpServletResponse response) {
         RefreshTokenResponse refreshResponse = authService.refreshToken(refreshTokenFromCookie, response);
         return ResponseEntity.ok(ApiResponse.success("Làm mới token thành công!", refreshResponse));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Yêu cầu đặt lại mật khẩu đã được gửi. Vui lòng kiểm tra email của bạn.", null));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Đặt lại mật khẩu thành công! Bạn có thể đăng nhập bằng mật khẩu mới.", null));
     }
 }

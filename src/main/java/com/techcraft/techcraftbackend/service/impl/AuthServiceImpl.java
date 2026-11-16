@@ -1,21 +1,26 @@
 package com.techcraft.techcraftbackend.service.impl;
 
+import com.techcraft.techcraftbackend.dto.request.ForgotPasswordRequest;
 import com.techcraft.techcraftbackend.dto.request.LoginRequest;
 import com.techcraft.techcraftbackend.dto.request.RegisterRequest;
+import com.techcraft.techcraftbackend.dto.request.ResetPasswordRequest;
 import com.techcraft.techcraftbackend.dto.response.LoginResponse;
 import com.techcraft.techcraftbackend.dto.response.RefreshTokenResponse;
 import com.techcraft.techcraftbackend.dto.response.RegisterResponse;
 import com.techcraft.techcraftbackend.dto.response.UserSummaryResponse;
 import com.techcraft.techcraftbackend.entity.EmailVerificationToken;
+import com.techcraft.techcraftbackend.entity.PasswordResetToken;
 import com.techcraft.techcraftbackend.entity.RefreshToken;
 import com.techcraft.techcraftbackend.entity.User;
 import com.techcraft.techcraftbackend.enums.Role;
 import com.techcraft.techcraftbackend.exception.AppException;
 import com.techcraft.techcraftbackend.exception.BadRequestException;
 import com.techcraft.techcraftbackend.exception.DuplicateResourceException;
+import com.techcraft.techcraftbackend.exception.ResourceNotFoundException;
 import com.techcraft.techcraftbackend.exception.UnauthorizedException;
 import com.techcraft.techcraftbackend.mapper.UserMapper;
 import com.techcraft.techcraftbackend.repository.EmailVerificationTokenRepository;
+import com.techcraft.techcraftbackend.repository.PasswordResetTokenRepository;
 import com.techcraft.techcraftbackend.repository.RefreshTokenRepository;
 import com.techcraft.techcraftbackend.repository.UserRepository;
 import com.techcraft.techcraftbackend.security.JwtUtils;
@@ -34,6 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -43,6 +49,7 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
+    private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
@@ -51,6 +58,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Value("${app.email-verification-token-expiry-hours:24}")
     private long tokenExpiryHours;
+
+    @Value("${app.password-reset-token-expiry-hours:1}")
+    private long passwordResetTokenExpiryHours;
 
     @Value("${jwt.refresh-token-expiry-days:30}")
     private long refreshTokenExpiryDays;
@@ -257,5 +267,80 @@ public class AuthServiceImpl implements AuthService {
                 .sameSite("Lax")
                 .build();
         response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+    }
+
+    @Override
+    @Transactional
+    public void forgotPassword(ForgotPasswordRequest request) {
+        String normalizedEmail = request.getEmail().toLowerCase().trim();
+
+        User user = userRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản với email đã cung cấp."));
+
+        if (!user.isActive()) {
+            throw new AppException("Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.", HttpStatus.FORBIDDEN);
+        }
+
+        // Vô hiệu hóa các token đặt lại mật khẩu cũ chưa sử dụng của user
+        List<PasswordResetToken> activeTokens = passwordResetTokenRepository.findAllByUserAndUsedFalse(user);
+        for (PasswordResetToken tokenEntity : activeTokens) {
+            tokenEntity.setUsed(true);
+        }
+        passwordResetTokenRepository.saveAll(activeTokens);
+
+        String token = UUID.randomUUID().toString();
+        PasswordResetToken resetToken = PasswordResetToken.builder()
+                .user(user)
+                .token(token)
+                .expiresAt(Instant.now().plus(passwordResetTokenExpiryHours, ChronoUnit.HOURS))
+                .used(false)
+                .build();
+
+        passwordResetTokenRepository.save(resetToken);
+
+        emailService.sendPasswordResetEmail(user.getEmail(), user.getFullName(), token);
+        log.info("Password reset email sent to user: {}", user.getEmail());
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        if (request.getToken() == null || request.getToken().isBlank()) {
+            throw new BadRequestException("Mã token đặt lại mật khẩu không được để trống.");
+        }
+
+        PasswordResetToken resetToken = passwordResetTokenRepository.findByToken(request.getToken())
+                .orElseThrow(() -> new BadRequestException("Mã đặt lại mật khẩu không tồn tại hoặc không hợp lệ."));
+
+        if (resetToken.isUsed()) {
+            throw new BadRequestException("Mã đặt lại mật khẩu đã được sử dụng trước đó.");
+        }
+
+        if (resetToken.getExpiresAt().isBefore(Instant.now())) {
+            throw new BadRequestException("Mã đặt lại mật khẩu đã hết hạn. Vui lòng gửi lại yêu cầu.");
+        }
+
+        User user = resetToken.getUser();
+        if (!user.isActive()) {
+            throw new AppException("Tài khoản đã bị vô hiệu hóa.", HttpStatus.FORBIDDEN);
+        }
+
+        // Cập nhật mật khẩu mới và kích hoạt email nếu chưa xác thực
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        user.setEmailVerified(true);
+        userRepository.save(user);
+
+        // Đánh dấu token đã sử dụng
+        resetToken.setUsed(true);
+        passwordResetTokenRepository.save(resetToken);
+
+        // Thu hồi toàn bộ Refresh Tokens còn hiệu lực để bảo mật
+        List<RefreshToken> activeRefreshTokens = refreshTokenRepository.findAllByUserAndRevokedFalse(user);
+        for (RefreshToken rt : activeRefreshTokens) {
+            rt.setRevoked(true);
+        }
+        refreshTokenRepository.saveAll(activeRefreshTokens);
+
+        log.info("Password reset successfully for user: {}", user.getEmail());
     }
 }
