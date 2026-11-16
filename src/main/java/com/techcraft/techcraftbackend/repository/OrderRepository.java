@@ -2,6 +2,7 @@ package com.techcraft.techcraftbackend.repository;
 
 import com.techcraft.techcraftbackend.entity.Order;
 import com.techcraft.techcraftbackend.enums.OrderStatus;
+import com.techcraft.techcraftbackend.repository.projection.OrderRevenueProjection;
 import com.techcraft.techcraftbackend.repository.projection.OrderStatusCountProjection;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -70,4 +71,18 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     @Query("SELECT o.status AS status, COUNT(o) AS count FROM Order o " +
            "WHERE o.createdAt <= :endDate GROUP BY o.status")
     List<OrderStatusCountProjection> countOrdersByStatusTo(@Param("endDate") Instant endDate);
+
+    @Query("SELECT o.createdAt AS createdAt, o.totalAmount AS totalAmount FROM Order o " +
+           "WHERE o.status = :status AND o.createdAt >= :startDate AND o.createdAt <= :endDate " +
+           "ORDER BY o.createdAt ASC")
+    List<OrderRevenueProjection> findRevenueOrdersBetween(
+            @Param("status") OrderStatus status,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate);
+
+    @Query("SELECT o.createdAt AS createdAt, o.totalAmount AS totalAmount FROM Order o " +
+           "WHERE o.status = :status " +
+           "ORDER BY o.createdAt ASC")
+    List<OrderRevenueProjection> findAllRevenueOrders(
+            @Param("status") OrderStatus status);
 }

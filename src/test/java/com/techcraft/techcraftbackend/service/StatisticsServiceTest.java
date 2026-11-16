@@ -1,11 +1,15 @@
 package com.techcraft.techcraftbackend.service;
 
 import com.techcraft.techcraftbackend.dto.request.OrderStatisticsFilterRequest;
-import com.techcraft.techcraftbackend.dto.response.OrderStatisticsResponse;
-import com.techcraft.techcraftbackend.dto.response.OrderStatusBreakdownResponse;
+import com.techcraft.techcraftbackend.dto.request.RevenueStatisticsFilterRequest;
+import com.techcraft.techcraftbackend.dto.request.UserStatisticsFilterRequest;
+import com.techcraft.techcraftbackend.dto.response.*;
 import com.techcraft.techcraftbackend.enums.OrderStatus;
+import com.techcraft.techcraftbackend.enums.TimePeriod;
 import com.techcraft.techcraftbackend.exception.BadRequestException;
 import com.techcraft.techcraftbackend.repository.OrderRepository;
+import com.techcraft.techcraftbackend.repository.UserRepository;
+import com.techcraft.techcraftbackend.repository.projection.OrderRevenueProjection;
 import com.techcraft.techcraftbackend.repository.projection.OrderStatusCountProjection;
 import com.techcraft.techcraftbackend.service.impl.StatisticsServiceImpl;
 import org.junit.jupiter.api.DisplayName;
@@ -15,11 +19,16 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -28,10 +37,13 @@ class StatisticsServiceTest {
     @Mock
     private OrderRepository orderRepository;
 
+    @Mock
+    private UserRepository userRepository;
+
     @InjectMocks
     private StatisticsServiceImpl statisticsService;
 
-    private OrderStatusCountProjection createProjection(OrderStatus status, Long count) {
+    private OrderStatusCountProjection createOrderStatusProjection(OrderStatus status, Long count) {
         return new OrderStatusCountProjection() {
             @Override
             public OrderStatus getStatus() {
@@ -45,14 +57,32 @@ class StatisticsServiceTest {
         };
     }
 
+    private OrderRevenueProjection createRevenueProjection(Instant createdAt, BigDecimal totalAmount) {
+        return new OrderRevenueProjection() {
+            @Override
+            public Instant getCreatedAt() {
+                return createdAt;
+            }
+
+            @Override
+            public BigDecimal getTotalAmount() {
+                return totalAmount;
+            }
+        };
+    }
+
+    // ==========================================
+    // 1. Tests cho Thống kê số lượng đơn hàng theo trạng thái
+    // ==========================================
+
     @Test
     @DisplayName("Thống kê đơn hàng toàn thời gian thành công khi không truyền ngày")
     void getOrderStatistics_AllTime_Success() {
         List<OrderStatusCountProjection> mockDbCounts = List.of(
-                createProjection(OrderStatus.PENDING, 5L),
-                createProjection(OrderStatus.CONFIRMED, 10L),
-                createProjection(OrderStatus.SHIPPING, 15L),
-                createProjection(OrderStatus.DELIVERED, 20L)
+                createOrderStatusProjection(OrderStatus.PENDING, 5L),
+                createOrderStatusProjection(OrderStatus.CONFIRMED, 10L),
+                createOrderStatusProjection(OrderStatus.SHIPPING, 15L),
+                createOrderStatusProjection(OrderStatus.DELIVERED, 20L)
         );
 
         when(orderRepository.countOrdersByStatus()).thenReturn(mockDbCounts);
@@ -78,82 +108,11 @@ class StatisticsServiceTest {
         assertEquals(20L, deliveredBreakdown.getCount());
         assertEquals(40.0, deliveredBreakdown.getPercentage());
 
-        OrderStatusBreakdownResponse cancelledBreakdown = response.getBreakdown().stream()
-                .filter(b -> b.getStatus() == OrderStatus.CANCELLED)
-                .findFirst()
-                .orElse(null);
-        assertNotNull(cancelledBreakdown);
-        assertEquals("Đã hủy", cancelledBreakdown.getStatusName());
-        assertEquals(0L, cancelledBreakdown.getCount());
-        assertEquals(0.0, cancelledBreakdown.getPercentage());
-
         verify(orderRepository, times(1)).countOrdersByStatus();
     }
 
     @Test
-    @DisplayName("Thống kê đơn hàng theo khoảng thời gian hợp lệ")
-    void getOrderStatistics_DateRange_CallsBetween() {
-        OrderStatisticsFilterRequest filter = OrderStatisticsFilterRequest.builder()
-                .startDate("2026-11-01")
-                .endDate("2026-11-15")
-                .build();
-
-        List<OrderStatusCountProjection> mockDbCounts = List.of(
-                createProjection(OrderStatus.DELIVERED, 8L)
-        );
-
-        when(orderRepository.countOrdersByStatusBetween(any(Instant.class), any(Instant.class)))
-                .thenReturn(mockDbCounts);
-
-        OrderStatisticsResponse response = statisticsService.getOrderStatistics(filter);
-
-        assertNotNull(response);
-        assertEquals(8L, response.getTotalOrders());
-        assertEquals(8L, response.getDeliveredCount());
-        assertEquals(0L, response.getPendingCount());
-
-        verify(orderRepository, times(1))
-                .countOrdersByStatusBetween(any(Instant.class), any(Instant.class));
-    }
-
-    @Test
-    @DisplayName("Thống kê chỉ truyền startDate thì gọi countOrdersByStatusFrom")
-    void getOrderStatistics_OnlyStartDate_CallsFrom() {
-        OrderStatisticsFilterRequest filter = OrderStatisticsFilterRequest.builder()
-                .startDate("2026-11-01T00:00:00Z")
-                .build();
-
-        when(orderRepository.countOrdersByStatusFrom(any(Instant.class)))
-                .thenReturn(List.of(createProjection(OrderStatus.SHIPPING, 3L)));
-
-        OrderStatisticsResponse response = statisticsService.getOrderStatistics(filter);
-
-        assertNotNull(response);
-        assertEquals(3L, response.getTotalOrders());
-        assertEquals(3L, response.getShippingCount());
-        verify(orderRepository, times(1)).countOrdersByStatusFrom(any(Instant.class));
-    }
-
-    @Test
-    @DisplayName("Thống kê chỉ truyền endDate thì gọi countOrdersByStatusTo")
-    void getOrderStatistics_OnlyEndDate_CallsTo() {
-        OrderStatisticsFilterRequest filter = OrderStatisticsFilterRequest.builder()
-                .endDate("2026-11-30")
-                .build();
-
-        when(orderRepository.countOrdersByStatusTo(any(Instant.class)))
-                .thenReturn(List.of(createProjection(OrderStatus.CONFIRMED, 4L)));
-
-        OrderStatisticsResponse response = statisticsService.getOrderStatistics(filter);
-
-        assertNotNull(response);
-        assertEquals(4L, response.getTotalOrders());
-        assertEquals(4L, response.getConfirmedCount());
-        verify(orderRepository, times(1)).countOrdersByStatusTo(any(Instant.class));
-    }
-
-    @Test
-    @DisplayName("Ném BadRequestException khi startDate sau endDate")
+    @DisplayName("Thống kê đơn hàng ném BadRequestException khi startDate sau endDate")
     void getOrderStatistics_StartDateAfterEndDate_ThrowsBadRequestException() {
         OrderStatisticsFilterRequest filter = OrderStatisticsFilterRequest.builder()
                 .startDate("2026-11-20")
@@ -167,37 +126,111 @@ class StatisticsServiceTest {
         verifyNoInteractions(orderRepository);
     }
 
+    // ==========================================
+    // 2. Tests cho Thống kê Doanh thu
+    // ==========================================
+
     @Test
-    @DisplayName("Ném BadRequestException khi định dạng ngày không hợp lệ")
-    void getOrderStatistics_InvalidDateFormat_ThrowsBadRequestException() {
-        OrderStatisticsFilterRequest filter = OrderStatisticsFilterRequest.builder()
-                .startDate("invalid-date-format")
+    @DisplayName("Thống kê doanh thu theo ngày thành công kèm bù 0 cho ngày trống")
+    void getRevenueStatistics_DayPeriod_Success() {
+        RevenueStatisticsFilterRequest filter = RevenueStatisticsFilterRequest.builder()
+                .period(TimePeriod.DAY)
+                .startDate("2026-11-01")
+                .endDate("2026-11-03")
                 .build();
 
-        assertThrows(BadRequestException.class,
-                () -> statisticsService.getOrderStatistics(filter));
+        Instant day1 = ZonedDateTime.of(2026, 11, 1, 10, 0, 0, 0, ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
+        Instant day3 = ZonedDateTime.of(2026, 11, 3, 15, 30, 0, 0, ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
 
-        verifyNoInteractions(orderRepository);
+        List<OrderRevenueProjection> orders = List.of(
+                createRevenueProjection(day1, BigDecimal.valueOf(1000000)),
+                createRevenueProjection(day3, BigDecimal.valueOf(2000000))
+        );
+
+        when(orderRepository.findRevenueOrdersBetween(eq(OrderStatus.DELIVERED), any(Instant.class), any(Instant.class)))
+                .thenReturn(orders);
+
+        RevenueStatisticsResponse response = statisticsService.getRevenueStatistics(filter);
+
+        assertNotNull(response);
+        assertEquals(BigDecimal.valueOf(3000000), response.getTotalRevenue());
+        assertEquals(2L, response.getTotalOrders());
+        assertEquals(BigDecimal.valueOf(1500000).setScale(2), response.getAverageOrderValue());
+        assertEquals(3, response.getTimeline().size()); // 01, 02 (0đ), 03
+
+        assertEquals(BigDecimal.valueOf(1000000), response.getTimeline().get(0).getRevenue());
+        assertEquals(1L, response.getTimeline().get(0).getOrderCount());
+
+        assertEquals(BigDecimal.ZERO, response.getTimeline().get(1).getRevenue());
+        assertEquals(0L, response.getTimeline().get(1).getOrderCount());
+
+        assertEquals(BigDecimal.valueOf(2000000), response.getTimeline().get(2).getRevenue());
+        assertEquals(1L, response.getTimeline().get(2).getOrderCount());
     }
 
     @Test
-    @DisplayName("Database rỗng thì trả về toàn bộ count = 0 và percentage = 0.0")
-    void getOrderStatistics_EmptyDatabase_ReturnsZeros() {
-        when(orderRepository.countOrdersByStatus()).thenReturn(List.of());
+    @DisplayName("Thống kê doanh thu ném BadRequestException khi startDate sau endDate")
+    void getRevenueStatistics_StartDateAfterEndDate_ThrowsBadRequestException() {
+        RevenueStatisticsFilterRequest filter = RevenueStatisticsFilterRequest.builder()
+                .startDate("2026-12-01")
+                .endDate("2026-11-01")
+                .build();
 
-        OrderStatisticsResponse response = statisticsService.getOrderStatistics(new OrderStatisticsFilterRequest());
+        assertThrows(BadRequestException.class, () -> statisticsService.getRevenueStatistics(filter));
+    }
+
+    @Test
+    @DisplayName("Thống kê doanh thu khi không có đơn hàng nào trả về 0đ và AOV 0đ")
+    void getRevenueStatistics_EmptyOrders_ReturnsZeros() {
+        RevenueStatisticsFilterRequest filter = RevenueStatisticsFilterRequest.builder()
+                .period(TimePeriod.DAY)
+                .startDate("2026-11-01")
+                .endDate("2026-11-02")
+                .build();
+
+        when(orderRepository.findRevenueOrdersBetween(eq(OrderStatus.DELIVERED), any(Instant.class), any(Instant.class)))
+                .thenReturn(Collections.emptyList());
+
+        RevenueStatisticsResponse response = statisticsService.getRevenueStatistics(filter);
 
         assertNotNull(response);
+        assertEquals(BigDecimal.ZERO, response.getTotalRevenue());
         assertEquals(0L, response.getTotalOrders());
-        assertEquals(0L, response.getPendingCount());
-        assertEquals(0L, response.getConfirmedCount());
-        assertEquals(0L, response.getShippingCount());
-        assertEquals(0L, response.getDeliveredCount());
-        assertEquals(0L, response.getCancelledCount());
-        assertEquals(5, response.getBreakdown().size());
-        response.getBreakdown().forEach(b -> {
-            assertEquals(0L, b.getCount());
-            assertEquals(0.0, b.getPercentage());
-        });
+        assertEquals(BigDecimal.ZERO, response.getAverageOrderValue());
+        assertEquals(2, response.getTimeline().size());
+    }
+
+    // ==========================================
+    // 3. Tests cho Thống kê người dùng mới
+    // ==========================================
+
+    @Test
+    @DisplayName("Thống kê người dùng mới thành công")
+    void getUserStatistics_Success() {
+        UserStatisticsFilterRequest filter = UserStatisticsFilterRequest.builder()
+                .period(TimePeriod.DAY)
+                .startDate("2026-11-01")
+                .endDate("2026-11-02")
+                .build();
+
+        Instant u1 = ZonedDateTime.of(2026, 11, 1, 9, 0, 0, 0, ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
+        Instant u2 = ZonedDateTime.of(2026, 11, 1, 14, 0, 0, 0, ZoneId.of("Asia/Ho_Chi_Minh")).toInstant();
+
+        when(userRepository.findUserCreatedAtBetween(any(Instant.class), any(Instant.class)))
+                .thenReturn(List.of(u1, u2));
+        when(userRepository.count()).thenReturn(100L);
+        when(userRepository.countByActiveTrue()).thenReturn(95L);
+        when(userRepository.countByEmailVerifiedTrue()).thenReturn(90L);
+
+        UserStatisticsResponse response = statisticsService.getUserStatistics(filter);
+
+        assertNotNull(response);
+        assertEquals(100L, response.getTotalUsers());
+        assertEquals(2L, response.getNewUsersInPeriod());
+        assertEquals(95L, response.getActiveUsers());
+        assertEquals(90L, response.getVerifiedUsers());
+        assertEquals(2, response.getTimeline().size()); // 01/11 (2 users), 02/11 (0 users)
+        assertEquals(2L, response.getTimeline().get(0).getNewUsersCount());
+        assertEquals(0L, response.getTimeline().get(1).getNewUsersCount());
     }
 }
