@@ -1,0 +1,99 @@
+package com.techcraft.techcraftbackend.entity;
+
+import com.techcraft.techcraftbackend.enums.OrderStatus;
+import com.techcraft.techcraftbackend.enums.PaymentMethod;
+import com.techcraft.techcraftbackend.enums.PaymentStatus;
+import jakarta.persistence.*;
+import lombok.*;
+import org.hibernate.annotations.BatchSize;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@Entity
+@Table(name = "orders")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class Order {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
+
+    @Column(name = "order_code", length = 32, unique = true)
+    private String orderCode;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    @Builder.Default
+    private OrderStatus status = OrderStatus.PENDING;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", nullable = false)
+    @Builder.Default
+    private PaymentMethod paymentMethod = PaymentMethod.COD;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_status", nullable = false)
+    @Builder.Default
+    private PaymentStatus paymentStatus = PaymentStatus.UNPAID;
+
+    @Column(name = "shipping_address", nullable = false, columnDefinition = "TEXT")
+    private String shippingAddress;
+
+    @Column(name = "subtotal_amount", precision = 15, scale = 2)
+    private BigDecimal subtotalAmount;
+
+    @Column(name = "discount_amount", precision = 15, scale = 2)
+    @Builder.Default
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "voucher_id")
+    private Voucher voucher;
+
+    @Column(name = "voucher_code", length = 50)
+    private String voucherCode;
+
+    @Column(name = "total_amount", nullable = false, precision = 15, scale = 2)
+    private BigDecimal totalAmount;
+
+    @Column(name = "note", columnDefinition = "TEXT")
+    private String note;
+
+    @CreationTimestamp
+    @Column(name = "created_at", updatable = false)
+    private Instant createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
+    @OrderBy("id ASC")
+    @BatchSize(size = 30)
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
+    private List<OrderItem> items = new ArrayList<>();
+
+    public void addItem(OrderItem item) {
+        items.add(item);
+        item.setOrder(this);
+    }
+
+    public void removeItem(OrderItem item) {
+        items.remove(item);
+        item.setOrder(null);
+    }
+}

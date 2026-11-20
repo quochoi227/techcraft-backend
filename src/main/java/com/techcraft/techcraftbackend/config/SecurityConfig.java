@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
@@ -64,7 +65,14 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/pc-cases/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/vouchers/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/vouchers/validate").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/chat").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/payment/sepay/webhook").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

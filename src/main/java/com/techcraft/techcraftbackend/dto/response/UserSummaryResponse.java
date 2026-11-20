@@ -21,4 +21,5 @@ public class UserSummaryResponse {
     private String address;
     private Role role;
     private boolean emailVerified;
+    private boolean active;
 }

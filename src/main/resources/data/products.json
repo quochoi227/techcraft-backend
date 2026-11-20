@@ -1,0 +1,754 @@
+[
+  {
+    "name": "CPU Intel Core i3-12100F (3.3GHz Turbo 4.3GHz, 4 Nhân 8 Luồng, LGA1700)",
+    "price": 2190000,
+    "stock_quantity": 25,
+    "category": "CPU",
+    "description": "Vi xử lý Intel Core i3-12100F thế hệ 12 Alder Lake với 4 nhân 8 luồng, hiệu năng đơn nhân vượt trội trong phân khúc phổ thông, phù hợp cho cấu hình PC Gaming tầm trung và học tập.",
+    "is_active": true,
+    "detail": {
+      "socket": "LGA1700",
+      "cores": 4,
+      "threads": 8,
+      "base_clock_ghz": 3.3,
+      "boost_clock_ghz": 4.3,
+      "tdp_w": 58,
+      "memory_type": "DDR4/DDR5",
+      "integrated_gpu": false
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/cpu/intel-i3-12100f-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "CPU Intel Core i5-13400F (2.5GHz Turbo 4.6GHz, 10 Nhân 16 Luồng, LGA1700)",
+    "price": 4690000,
+    "stock_quantity": 30,
+    "category": "CPU",
+    "description": "CPU quốc dân cho PC Gaming và làm việc đa nhiệm với thiết kế kiến trúc lai 6 P-Cores và 4 E-Cores (10 nhân 16 luồng), hỗ trợ cả RAM DDR4 và DDR5.",
+    "is_active": true,
+    "detail": {
+      "socket": "LGA1700",
+      "cores": 10,
+      "threads": 16,
+      "base_clock_ghz": 2.5,
+      "boost_clock_ghz": 4.6,
+      "tdp_w": 65,
+      "memory_type": "DDR4/DDR5",
+      "integrated_gpu": false
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/cpu/intel-i5-13400f-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      },
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/cpu/intel-i5-13400f-2.jpg",
+        "is_primary": false,
+        "display_order": 1
+      }
+    ]
+  },
+  {
+    "name": "CPU Intel Core i7-14700K (3.4GHz Turbo 5.6GHz, 20 Nhân 28 Luồng, LGA1700)",
+    "price": 10490000,
+    "stock_quantity": 15,
+    "category": "CPU",
+    "description": "Bộ vi xử lý cao cấp Intel thế hệ 14 Raptor Lake Refresh với 20 nhân 28 luồng, xung nhịp tối đa 5.6GHz cùng iGPU Intel UHD Graphics 770, lý tưởng cho dựng phim, đồ họa 3D và gaming AAA.",
+    "is_active": true,
+    "detail": {
+      "socket": "LGA1700",
+      "cores": 20,
+      "threads": 28,
+      "base_clock_ghz": 3.4,
+      "boost_clock_ghz": 5.6,
+      "tdp_w": 125,
+      "memory_type": "DDR4/DDR5",
+      "integrated_gpu": true
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/cpu/intel-i7-14700k-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "CPU AMD Ryzen 5 7600X (4.7GHz Turbo 5.3GHz, 6 Nhân 12 Luồng, AM5)",
+    "price": 5290000,
+    "stock_quantity": 20,
+    "category": "CPU",
+    "description": "Vi xử lý kiến trúc Zen 4 trên nền tảng socket AM5 mới nhất của AMD, mang lại hiệu năng gaming ấn tượng, hỗ trợ chuẩn RAM DDR5 và PCIe 5.0.",
+    "is_active": true,
+    "detail": {
+      "socket": "AM5",
+      "cores": 6,
+      "threads": 12,
+      "base_clock_ghz": 4.7,
+      "boost_clock_ghz": 5.3,
+      "tdp_w": 105,
+      "memory_type": "DDR5",
+      "integrated_gpu": true
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/cpu/amd-r5-7600x-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "CPU AMD Ryzen 7 7800X3D (4.2GHz Turbo 5.0GHz, 8 Nhân 16 Luồng, AM5)",
+    "price": 10990000,
+    "stock_quantity": 12,
+    "category": "CPU",
+    "description": "Vua gaming hiện tại với công nghệ bộ nhớ đệm 3D V-Cache lên tới 96MB L3 Cache, mang lại mức FPS vượt trội trong mọi tựa game eSports và AAA.",
+    "is_active": true,
+    "detail": {
+      "socket": "AM5",
+      "cores": 8,
+      "threads": 16,
+      "base_clock_ghz": 4.2,
+      "boost_clock_ghz": 5.0,
+      "tdp_w": 120,
+      "memory_type": "DDR5",
+      "integrated_gpu": true
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/cpu/amd-r7-7800x3d-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Mainboard ASUS Prime H610M-K D4 (LGA1700, mATX, DDR4)",
+    "price": 1890000,
+    "stock_quantity": 28,
+    "category": "MAINBOARD",
+    "description": "Bo mạch chủ phân khúc phổ thông chuẩn mATX dành cho CPU Intel thế hệ 12/13/14, trang bị khe M.2 PCIe 3.0, LAN 1Gb và thiết kế tản nhiệt bền bỉ cho văn phòng, học tập và gaming cơ bản.",
+    "is_active": true,
+    "detail": {
+      "socket": "LGA1700",
+      "form_factor": "mATX",
+      "chipset": "H610",
+      "memory_type": "DDR4",
+      "memory_slots": 2,
+      "max_memory_gb": 64,
+      "m2_slots": 1,
+      "pcie_version": "4.0"
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/mainboard/asus-prime-h610m-k-d4-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Mainboard MSI MAG B760M MORTAR WIFI II (LGA1700, mATX, DDR5)",
+    "price": 4590000,
+    "stock_quantity": 22,
+    "category": "MAINBOARD",
+    "description": "Bo mạch chủ tầm trung cao cấp với dàn VRM 12+1+1 Duet Rail Power System mạnh mẽ, hỗ trợ RAM DDR5 xung nhịp cao, 3 khe M.2 Gen4 và kết nối Wi-Fi 6E.",
+    "is_active": true,
+    "detail": {
+      "socket": "LGA1700",
+      "form_factor": "mATX",
+      "chipset": "B760",
+      "memory_type": "DDR5",
+      "memory_slots": 4,
+      "max_memory_gb": 256,
+      "m2_slots": 3,
+      "pcie_version": "5.0"
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/mainboard/msi-b760m-mortar-wifi-ii-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Mainboard ASUS ROG STRIX Z790-F GAMING WIFI II (LGA1700, ATX, DDR5)",
+    "price": 10890000,
+    "stock_quantity": 10,
+    "category": "MAINBOARD",
+    "description": "Bo mạch chủ flagship dòng ROG Strix chuẩn ATX dành cho CPU Intel Core i7/i9, hỗ trợ ép xung thông minh AI Overclocking, PCIe 5.0, 5 khe M.2 và Wi-Fi 7.",
+    "is_active": true,
+    "detail": {
+      "socket": "LGA1700",
+      "form_factor": "ATX",
+      "chipset": "Z790",
+      "memory_type": "DDR5",
+      "memory_slots": 4,
+      "max_memory_gb": 192,
+      "m2_slots": 5,
+      "pcie_version": "5.0"
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/mainboard/asus-rog-strix-z790-f-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Mainboard GIGABYTE B650 AORUS ELITE AX V2 (AM5, ATX, DDR5)",
+    "price": 5690000,
+    "stock_quantity": 18,
+    "category": "MAINBOARD",
+    "description": "Bo mạch chủ chuẩn ATX cho nền tảng AMD Ryzen 7000/8000/9000 series với thiết kế VRM 12+2+2 phases, hỗ trợ EXPO/XMP DDR5, khe M.2 PCIe 5.0 và tản nhiệt Thermal Guard.",
+    "is_active": true,
+    "detail": {
+      "socket": "AM5",
+      "form_factor": "ATX",
+      "chipset": "B650",
+      "memory_type": "DDR5",
+      "memory_slots": 4,
+      "max_memory_gb": 192,
+      "m2_slots": 3,
+      "pcie_version": "5.0"
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/mainboard/gigabyte-b650-aorus-elite-ax-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "RAM Kingston Fury Beast 16GB (2x8GB) DDR4 3200MHz",
+    "price": 1090000,
+    "stock_quantity": 40,
+    "category": "RAM",
+    "description": "Kit RAM DDR4 16GB (2x8GB) bus 3200MHz độ trễ thấp CL16, tương thích Intel XMP và AMD Ryzen, lựa chọn kinh tế và ổn định cho PC học tập, văn phòng và gaming phổ thông.",
+    "is_active": true,
+    "detail": {
+      "type": "DDR4",
+      "speed_mhz": 3200,
+      "capacity_gb": 8,
+      "sticks": 2,
+      "total_gb": 16
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/ram/kingston-fury-beast-ddr4-16gb-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "RAM Corsair Vengeance LPX 32GB (2x16GB) DDR4 3600MHz",
+    "price": 2090000,
+    "stock_quantity": 25,
+    "category": "RAM",
+    "description": "Kit RAM DDR4 32GB (2x16GB) thiết kế tản nhiệt nhôm mỏng Low-Profile không cấn tản nhiệt khí, xung nhịp 3600MHz tối ưu cho đa nhiệm và xử lý đồ họa.",
+    "is_active": true,
+    "detail": {
+      "type": "DDR4",
+      "speed_mhz": 3600,
+      "capacity_gb": 16,
+      "sticks": 2,
+      "total_gb": 32
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/ram/corsair-vengeance-lpx-ddr4-32gb-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "RAM Corsair Vengeance RGB 32GB (2x16GB) DDR5 6000MHz",
+    "price": 3290000,
+    "stock_quantity": 30,
+    "category": "RAM",
+    "description": "Kit RAM DDR5 32GB xung nhịp 6000MHz chuẩn sweet-spot cho cả Intel Gen 13/14 và AMD Ryzen 7000, tích hợp dải LED RGB 10 vùng tùy chỉnh qua phần mềm iCUE.",
+    "is_active": true,
+    "detail": {
+      "type": "DDR5",
+      "speed_mhz": 6000,
+      "capacity_gb": 16,
+      "sticks": 2,
+      "total_gb": 32
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/ram/corsair-vengeance-rgb-ddr5-32gb-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "RAM G.Skill Trident Z5 RGB 64GB (2x32GB) DDR5 6400MHz",
+    "price": 6290000,
+    "stock_quantity": 12,
+    "category": "RAM",
+    "description": "Kit RAM cao cấp 64GB DDR5 6400MHz dành cho hệ thống Workstation, dựng phim 4K/8K, AI và gaming đỉnh cao với thiết kế nhôm phay xước sang trọng.",
+    "is_active": true,
+    "detail": {
+      "type": "DDR5",
+      "speed_mhz": 6400,
+      "capacity_gb": 32,
+      "sticks": 2,
+      "total_gb": 64
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/ram/gskill-trident-z5-rgb-64gb-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "VGA ASUS Dual Radeon RX 6600 8GB GDDR6",
+    "price": 5190000,
+    "stock_quantity": 20,
+    "category": "GPU",
+    "description": "Card màn hình gaming Full HD (1080p) hiệu năng trên giá thành tốt nhất phân khúc phổ thông, trang bị 2 quạt Axial-tech làm mát tối ưu và tiêu thụ điện năng thấp.",
+    "is_active": true,
+    "detail": {
+      "vram_gb": 8,
+      "vram_type": "GDDR6",
+      "tdp_w": 132,
+      "pcie_slot": "x16",
+      "length_mm": 243
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/gpu/asus-dual-rx6600-8gb-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "VGA MSI GeForce RTX 4060 VENTUS 2X BLACK 8GB OC GDDR6",
+    "price": 7990000,
+    "stock_quantity": 25,
+    "category": "GPU",
+    "description": "Card đồ họa kiến trúc NVIDIA Ada Lovelace hỗ trợ DLSS 3 Frame Generation và Ray Tracing thế hệ 3, thiết kế 2 quạt nhỏ gọn tương thích với hầu hết các vỏ case.",
+    "is_active": true,
+    "detail": {
+      "vram_gb": 8,
+      "vram_type": "GDDR6",
+      "tdp_w": 115,
+      "pcie_slot": "x16",
+      "length_mm": 199
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/gpu/msi-rtx4060-ventus-2x-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "VGA GIGABYTE GeForce RTX 4070 SUPER WINDFORCE OC 12GB GDDR6X",
+    "price": 16990000,
+    "stock_quantity": 14,
+    "category": "GPU",
+    "description": "Card đồ họa chiến mượt mọi tựa game 2K (1440p) Max Settings và làm đồ họa 3D, AI với 12GB VRAM GDDR6X cùng hệ thống tản nhiệt 3 quạt WINDFORCE.",
+    "is_active": true,
+    "detail": {
+      "vram_gb": 12,
+      "vram_type": "GDDR6X",
+      "tdp_w": 220,
+      "pcie_slot": "x16",
+      "length_mm": 261
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/gpu/gigabyte-rtx4070-super-windforce-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "VGA ASUS ROG Strix GeForce RTX 4080 SUPER 16GB GDDR6X OC Edition",
+    "price": 31990000,
+    "stock_quantity": 8,
+    "category": "GPU",
+    "description": "Siêu phẩm card đồ họa 4K Gaming và Rendering chuyên nghiệp với buồng hơi Vapor Chamber cấp bằng sáng chế, 16GB GDDR6X và khung kim loại đúc nguyên khối.",
+    "is_active": true,
+    "detail": {
+      "vram_gb": 16,
+      "vram_type": "GDDR6X",
+      "tdp_w": 320,
+      "pcie_slot": "x16",
+      "length_mm": 358
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/gpu/asus-rog-strix-rtx4080-super-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "SSD Kingston NV2 500GB M.2 PCIe 4.0 NVMe",
+    "price": 1050000,
+    "stock_quantity": 45,
+    "category": "STORAGE",
+    "description": "Ổ cứng SSD M.2 NVMe PCIe Gen 4x4 dung lượng 500GB nhỏ gọn, tốc độ đọc lên đến 3500MB/s giúp khởi động Windows và ứng dụng nhanh chóng.",
+    "is_active": true,
+    "detail": {
+      "type": "NVMe SSD",
+      "capacity_gb": 500,
+      "interface": "M.2 PCIe 4.0",
+      "read_mbps": 3500,
+      "write_mbps": 2100
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/storage/kingston-nv2-500gb-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "SSD Samsung 990 PRO 1TB M.2 PCIe 4.0 NVMe",
+    "price": 2890000,
+    "stock_quantity": 30,
+    "category": "STORAGE",
+    "description": "Ổ cứng SSD NVMe PCIe 4.0 tốc độ hàng đầu thế giới với tốc độ đọc 7450MB/s và ghi 6900MB/s, tối ưu cho gaming, biên tập video 4K và xử lý dữ liệu lớn.",
+    "is_active": true,
+    "detail": {
+      "type": "NVMe SSD",
+      "capacity_gb": 1000,
+      "interface": "M.2 PCIe 4.0",
+      "read_mbps": 7450,
+      "write_mbps": 6900
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/storage/samsung-990-pro-1tb-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "SSD Western Digital Black SN850X 2TB M.2 PCIe 4.0 NVMe",
+    "price": 4490000,
+    "stock_quantity": 18,
+    "category": "STORAGE",
+    "description": "SSD chuyên dụng cho game thủ và nhà sáng tạo nội dung với dung lượng lớn 2TB, tốc độ đọc 7300MB/s cùng chế độ Game Mode 2.0 giảm thiểu độ trễ.",
+    "is_active": true,
+    "detail": {
+      "type": "NVMe SSD",
+      "capacity_gb": 2000,
+      "interface": "M.2 PCIe 4.0",
+      "read_mbps": 7300,
+      "write_mbps": 6600
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/storage/wd-black-sn850x-2tb-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "HDD Seagate Barracuda 2TB SATA III 3.5 inch 7200RPM",
+    "price": 1590000,
+    "stock_quantity": 25,
+    "category": "STORAGE",
+    "description": "Ổ cứng cơ HDD 2TB tốc độ vòng quay 7200RPM, bộ nhớ đệm 256MB, giải pháp lưu trữ dữ liệu, phim ảnh và backup dung lượng lớn tiết kiệm chi phí.",
+    "is_active": true,
+    "detail": {
+      "type": "HDD",
+      "capacity_gb": 2000,
+      "interface": "SATA III 6Gb/s",
+      "read_mbps": 220,
+      "write_mbps": 210
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/storage/seagate-barracuda-2tb-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Nguồn MSI MAG A650BN 650W (80 Plus Bronze / Non-Modular)",
+    "price": 1290000,
+    "stock_quantity": 35,
+    "category": "PSU",
+    "description": "Bộ nguồn công suất thực 650W đạt chứng nhận 80 Plus Bronze, thiết kế mạch DC-to-DC ổn định, phù hợp cho các bộ PC Gaming tầm trung sử dụng RTX 4060 hoặc RX 6600.",
+    "is_active": true,
+    "detail": {
+      "wattage_w": 650,
+      "efficiency": "80+ Bronze",
+      "modular": "Non-modular",
+      "form_factor": "ATX"
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/psu/msi-mag-a650bn-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Nguồn Corsair RM750e 750W ATX 3.0 (80 Plus Gold / Full Modular)",
+    "price": 2690000,
+    "stock_quantity": 24,
+    "category": "PSU",
+    "description": "Nguồn máy tính chuẩn ATX 3.0 và PCIe 5.0 với cáp 12VHPWR đi kèm, chứng nhận 80 Plus Gold, 100% cáp rời Full Modular và chế độ quạt Zero RPM siêu êm.",
+    "is_active": true,
+    "detail": {
+      "wattage_w": 750,
+      "efficiency": "80+ Gold",
+      "modular": "Full",
+      "form_factor": "ATX"
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/psu/corsair-rm750e-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Nguồn ASUS TUF Gaming 850W Gold ATX 3.0 (80 Plus Gold / Full Modular)",
+    "price": 3490000,
+    "stock_quantity": 16,
+    "category": "PSU",
+    "description": "Bộ nguồn chuẩn quân đội TUF Gaming công suất 850W, tụ điện Nhật Bản bền bỉ, chuẩn ATX 3.0 tương thích hoàn hảo với các dòng card RTX 4070 Super / 4080 Super.",
+    "is_active": true,
+    "detail": {
+      "wattage_w": 850,
+      "efficiency": "80+ Gold",
+      "modular": "Full",
+      "form_factor": "ATX"
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/psu/asus-tuf-850w-gold-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Nguồn Seasonic VERTEX GX-1000 1000W ATX 3.0 (80 Plus Gold / Full Modular)",
+    "price": 4990000,
+    "stock_quantity": 10,
+    "category": "PSU",
+    "description": "Bộ nguồn cao cấp 1000W chuẩn ATX 3.0 từ thương hiệu Seasonic danh tiếng, đảm bảo cấp nguồn ổn định tuyệt đối cho các cấu hình Workstation và High-End Gaming.",
+    "is_active": true,
+    "detail": {
+      "wattage_w": 1000,
+      "efficiency": "80+ Gold",
+      "modular": "Full",
+      "form_factor": "ATX"
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/psu/seasonic-vertex-gx1000-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Vỏ Case Xigmatek Gaming X II 3F (Mid Tower / Đen / Kèm 3 Fan RGB)",
+    "price": 850000,
+    "stock_quantity": 30,
+    "category": "CASE",
+    "description": "Vỏ case Mid Tower quốc dân với mặt trước lưới thoáng khí, vách kính cường lực và tặng kèm sẵn 3 quạt RGB, hỗ trợ mainboard ATX, mATX và ITX.",
+    "is_active": true,
+    "detail": {
+      "form_factor_support": ["ATX", "mATX", "ITX"],
+      "max_gpu_length_mm": 320,
+      "max_cooler_height_mm": 160,
+      "drive_bays_35": 2,
+      "drive_bays_25": 2
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/case/xigmatek-gaming-x-ii-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Vỏ Case ASUS Prime AP201 Tempered Glass (mATX / Đen)",
+    "price": 1790000,
+    "stock_quantity": 20,
+    "category": "CASE",
+    "description": "Vỏ case chuẩn mATX thiết kế tối giản hiện đại với hơn 5700 lỗ thoáng khí, dù nhỏ gọn 33 lít nhưng hỗ trợ tản nhiệt nước AIO 360mm và card đồ họa dài tới 338mm.",
+    "is_active": true,
+    "detail": {
+      "form_factor_support": ["mATX", "ITX"],
+      "max_gpu_length_mm": 338,
+      "max_cooler_height_mm": 170,
+      "drive_bays_35": 3,
+      "drive_bays_25": 4
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/case/asus-prime-ap201-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Vỏ Case Corsair 4000D Airflow Tempered Glass (Mid Tower / Đen)",
+    "price": 2390000,
+    "stock_quantity": 22,
+    "category": "CASE",
+    "description": "Vỏ case Mid Tower cao cấp với mặt lưới thép tối ưu luồng gió làm mát, hệ thống đi dây RapidRoute tiện lợi và không gian rộng rãi cho linh kiện hiệu năng cao.",
+    "is_active": true,
+    "detail": {
+      "form_factor_support": ["ATX", "mATX", "ITX"],
+      "max_gpu_length_mm": 360,
+      "max_cooler_height_mm": 170,
+      "drive_bays_35": 2,
+      "drive_bays_25": 2
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/case/corsair-4000d-airflow-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Vỏ Case Lian Li O11 Dynamic EVO RGB (Mid Tower / Đen)",
+    "price": 4190000,
+    "stock_quantity": 12,
+    "category": "CASE",
+    "description": "Vỏ case bể cá hai mặt kính cường lực không trụ góc với dải LED ARGB chạy viền trên dưới, không gian cực rộng hỗ trợ các dòng VGA RTX 4080/4090 kích thước lớn.",
+    "is_active": true,
+    "detail": {
+      "form_factor_support": ["ATX", "mATX", "ITX"],
+      "max_gpu_length_mm": 455,
+      "max_cooler_height_mm": 167,
+      "drive_bays_35": 2,
+      "drive_bays_25": 4
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/case/lian-li-o11-dynamic-evo-rgb-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Tản nhiệt khí DeepCool AK400 Digital (Đen / Màn hình hiển thị nhiệt độ)",
+    "price": 890000,
+    "stock_quantity": 35,
+    "category": "CPU_COOLER",
+    "description": "Tản nhiệt khí 4 ống đồng tích hợp màn hình kỹ thuật số hiển thị nhiệt độ và mức tải CPU theo thời gian thực, vận hành êm ái và dễ dàng lắp đặt.",
+    "is_active": true,
+    "detail": {
+      "type": "Air",
+      "socket_support": ["LGA1700", "LGA1200", "AM5", "AM4"],
+      "height_mm": 156,
+      "tdp_support_w": 220
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/cooler/deepcool-ak400-digital-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Tản nhiệt khí Thermalright Peerless Assassin 120 SE ARGB",
+    "price": 990000,
+    "stock_quantity": 30,
+    "category": "CPU_COOLER",
+    "description": "Huyền thoại tản nhiệt khí tháp đôi 6 ống đồng mạ niken với 2 quạt TL-C12C-S ARGB, hiệu năng giải nhiệt vượt trội ngang ngửa nhiều mẫu AIO 240mm.",
+    "is_active": true,
+    "detail": {
+      "type": "Air",
+      "socket_support": ["LGA1700", "LGA1200", "AM5", "AM4"],
+      "height_mm": 155,
+      "tdp_support_w": 245
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/cooler/thermalright-pa120-se-argb-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Tản nhiệt nước AIO DeepCool LT520 240mm ARGB",
+    "price": 2390000,
+    "stock_quantity": 18,
+    "category": "CPU_COOLER",
+    "description": "Tản nhiệt nước AIO 240mm nổi bật với mặt block vô cực 3 chiều đa diện và bơm thế hệ thứ 4 hiệu suất cao, giữ nhiệt độ mát mẻ cho các dòng CPU Core i5/i7 và Ryzen 5/7.",
+    "is_active": true,
+    "detail": {
+      "type": "AIO Liquid",
+      "socket_support": ["LGA1700", "LGA1200", "AM5", "AM4"],
+      "height_mm": 58,
+      "radiator_size_mm": 240,
+      "tdp_support_w": 280
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/cooler/deepcool-lt520-240mm-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  },
+  {
+    "name": "Tản nhiệt nước AIO NZXT Kraken 360 RGB (360mm / Màn hình LCD)",
+    "price": 4890000,
+    "stock_quantity": 10,
+    "category": "CPU_COOLER",
+    "description": "Tản nhiệt nước AIO 360mm cao cấp trang bị màn hình LCD 1.54 inch hiển thị thông số hệ thống hoặc ảnh GIF tùy chỉnh, giải nhiệt tối ưu cho Intel Core i7/i9 và Ryzen 7/9.",
+    "is_active": true,
+    "detail": {
+      "type": "AIO Liquid",
+      "socket_support": ["LGA1700", "LGA1200", "AM5", "AM4"],
+      "height_mm": 56,
+      "radiator_size_mm": 360,
+      "tdp_support_w": 300
+    },
+    "images": [
+      {
+        "image_url": "https://res.cloudinary.com/demo/image/upload/v1/products/cooler/nzxt-kraken-360-rgb-1.jpg",
+        "is_primary": true,
+        "display_order": 0
+      }
+    ]
+  }
+]

@@ -52,10 +52,10 @@
 
 Dự án được tổ chức thành **2 repo riêng biệt**:
 
-| Repo                    | Mô tả |
-|-------------------------|-------|
-| `techcraft-pc-frontend` | Frontend — React + Vite (TypeScript) |
-| `techcraftpc-backend`   | Backend — Java + Spring Boot |
+| Repo                | Mô tả |
+|---------------------|-------|
+| `techcraft-frontend` | Frontend — React + Vite (TypeScript) |
+| `techcraft-backend` | Backend — Java + Spring Boot |
 
 ---
 
@@ -119,6 +119,8 @@ users (
   phone VARCHAR,
   address TEXT,
   role ENUM('GUEST', 'USER', 'ADMIN') DEFAULT 'USER',
+  email_verified BOOLEAN DEFAULT FALSE,
+  active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP,
   updated_at TIMESTAMP
 )
@@ -172,64 +174,51 @@ orders (
   updated_at TIMESTAMP
 )
 
--- Chi tiết đơn hàng — linh kiện lẻ
+-- Chi tiết đơn hàng (linh kiện lẻ HOẶC cấu hình PC — đúng một trong hai)
 order_items (
   id UUID PRIMARY KEY,
   order_id UUID REFERENCES orders(id),
-  product_id UUID REFERENCES products(id),
+  product_id  UUID REFERENCES products(id),  -- nullable
+  pc_case_id  UUID REFERENCES pc_cases(id),  -- nullable
   quantity INT NOT NULL,
-  unit_price DECIMAL(15, 2) NOT NULL  -- Giá tại thời điểm đặt hàng
+  unit_price DECIMAL(15, 2) NOT NULL,        -- Giá tại thời điểm đặt hàng
+  CHECK (
+    (product_id IS NOT NULL AND pc_case_id IS NULL) OR
+    (product_id IS NULL     AND pc_case_id IS NOT NULL)
+  )
 )
 
--- Chi tiết đơn hàng — cấu hình PC
-pc_case_order_items (
-  id UUID PRIMARY KEY,
-  order_id UUID REFERENCES orders(id),
-  pc_case_id UUID REFERENCES pc_cases(id),
-  quantity INT NOT NULL,
-  unit_price DECIMAL(15, 2) NOT NULL  -- Tổng giá PC Case tại thời điểm đặt hàng
-)
-
--- Giỏ hàng — linh kiện lẻ
+-- Giỏ hàng (linh kiện lẻ HOẶC cấu hình PC — đúng một trong hai)
 cart_items (
   id UUID PRIMARY KEY,
   user_id UUID REFERENCES users(id),
-  product_id UUID REFERENCES products(id),
+  product_id  UUID REFERENCES products(id),  -- nullable
+  pc_case_id  UUID REFERENCES pc_cases(id),  -- nullable
   quantity INT NOT NULL DEFAULT 1,
-  UNIQUE(user_id, product_id)
+  UNIQUE(user_id, product_id),
+  UNIQUE(user_id, pc_case_id),
+  CHECK (
+    (product_id IS NOT NULL AND pc_case_id IS NULL) OR
+    (product_id IS NULL     AND pc_case_id IS NOT NULL)
+  )
 )
 
--- Giỏ hàng — cấu hình PC
-pc_case_cart_items (
+-- Đánh giá (linh kiện lẻ HOẶC cấu hình PC — đúng một trong hai)
+reviews (
   id UUID PRIMARY KEY,
   user_id UUID REFERENCES users(id),
-  pc_case_id UUID REFERENCES pc_cases(id),
-  quantity INT NOT NULL DEFAULT 1,
-  UNIQUE(user_id, pc_case_id)
-)
-
--- Đánh giá linh kiện
-product_reviews (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES users(id),
-  product_id UUID REFERENCES products(id),
+  product_id  UUID REFERENCES products(id),  -- nullable
+  pc_case_id  UUID REFERENCES pc_cases(id),  -- nullable
   rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
   comment TEXT,
   created_at TIMESTAMP,
   updated_at TIMESTAMP,
-  UNIQUE(user_id, product_id)   -- Mỗi user chỉ đánh giá 1 lần / sản phẩm
-)
-
--- Đánh giá cấu hình PC
-pc_case_reviews (
-  id UUID PRIMARY KEY,
-  user_id UUID REFERENCES users(id),
-  pc_case_id UUID REFERENCES pc_cases(id),
-  rating SMALLINT NOT NULL CHECK (rating BETWEEN 1 AND 5),
-  comment TEXT,
-  created_at TIMESTAMP,
-  updated_at TIMESTAMP,
-  UNIQUE(user_id, pc_case_id)   -- Mỗi user chỉ đánh giá 1 lần / PC Case
+  UNIQUE(user_id, product_id),               -- Mỗi user chỉ đánh giá 1 lần / sản phẩm
+  UNIQUE(user_id, pc_case_id),               -- Mỗi user chỉ đánh giá 1 lần / PC Case
+  CHECK (
+    (product_id IS NOT NULL AND pc_case_id IS NULL) OR
+    (product_id IS NULL     AND pc_case_id IS NOT NULL)
+  )
 )
 
 -- Token xác thực email (gửi qua Resend khi đăng ký)
@@ -240,6 +229,37 @@ email_verification_tokens (
   expires_at TIMESTAMP NOT NULL,   -- Thường 24 giờ
   used BOOLEAN DEFAULT FALSE,      -- Đánh dấu đã dùng để tránh dùng lại
   created_at TIMESTAMP
+)
+
+-- Mã giảm giá (Voucher)
+vouchers (
+  id UUID PRIMARY KEY,
+  code VARCHAR(50) UNIQUE NOT NULL,    -- Mã voucher, in hoa (vd: TECH50K)
+  name VARCHAR(255) NOT NULL,          -- Tên chương trình
+  description TEXT,                    -- Mô tả điều kiện
+  discount_type VARCHAR(20) NOT NULL,  -- PERCENTAGE hoặc FIXED_AMOUNT
+  discount_value DECIMAL(15, 2) NOT NULL, -- Giá trị giảm (% hoặc VND)
+  max_discount_amount DECIMAL(15, 2),  -- Số tiền giảm tối đa (khi discount_type = PERCENTAGE)
+  min_order_amount DECIMAL(15, 2) DEFAULT 0, -- Giá trị đơn hàng tối thiểu
+  start_date TIMESTAMP NOT NULL,       -- Thời gian bắt đầu
+  end_date TIMESTAMP NOT NULL,         -- Thời gian hết hạn
+  usage_limit INT,                     -- Tổng số lượt dùng tối đa toàn hệ thống
+  used_count INT NOT NULL DEFAULT 0,   -- Số lượt đã dùng
+  user_usage_limit INT DEFAULT 1,      -- Số lượt dùng tối đa / 1 khách hàng
+  is_active BOOLEAN DEFAULT TRUE,      -- Trạng thái kích hoạt
+  created_at TIMESTAMP,
+  updated_at TIMESTAMP
+)
+
+-- Lịch sử sử dụng mã giảm giá
+voucher_usages (
+  id UUID PRIMARY KEY,
+  voucher_id UUID REFERENCES vouchers(id),
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  order_id UUID REFERENCES orders(id) ON DELETE CASCADE,
+  discount_amount DECIMAL(15, 2) NOT NULL,
+  used_at TIMESTAMP NOT NULL,
+  UNIQUE(user_id, voucher_id, order_id)
 )
 
 -- Token đặt lại mật khẩu (gửi qua Resend khi quên mật khẩu)
@@ -474,15 +494,14 @@ Gemini trả về: Giải thích + gợi ý 1–3 PC Case phù hợp nhất
 | PUT | `/api/products/{id}` | Cập nhật sản phẩm | Admin |
 | DELETE | `/api/products/{id}` | Xoá sản phẩm (soft delete) | Admin |
 
-### Orders
+### Images / Cloudinary
 | Method | Endpoint | Mô tả | Auth |
 |--------|----------|-------|------|
-| GET | `/api/orders` | Lịch sử đơn hàng của user hiện tại | User |
-| GET | `/api/orders/{id}` | Chi tiết đơn hàng | User |
-| POST | `/api/orders` | Tạo đơn hàng mới | User |
-| PUT | `/api/orders/{id}/cancel` | Huỷ đơn hàng | User |
-| GET | `/api/admin/orders` | Tất cả đơn hàng | Admin |
-| PUT | `/api/admin/orders/{id}/status` | Cập nhật trạng thái đơn hàng | Admin |
+| POST | `/api/images/upload` | Upload 1 hình ảnh lên Cloudinary (`multipart/form-data`, hỗ trợ param `folder`) | Admin |
+| POST | `/api/images/upload-multiple` | Upload danh sách nhiều hình ảnh (tối đa 10 ảnh/lần) | Admin |
+| DELETE | `/api/images?publicId={publicId}` | Xoá hình ảnh khỏi Cloudinary qua query param | Admin |
+| DELETE | `/api/images/{publicId}` | Xoá hình ảnh khỏi Cloudinary qua path param | Admin |
+*(Hỗ trợ cả 2 tiền tố `/api/images` và `/api/admin/images`)*
 
 ### Cart
 | Method | Endpoint | Mô tả | Auth |
@@ -539,6 +558,20 @@ Gemini trả về: Giải thích + gợi ý 1–3 PC Case phù hợp nhất
 | POST | `/api/pc-cases/{id}/reviews` | Viết đánh giá cho PC Case (đã mua) | User |
 | PUT | `/api/pc-cases/{id}/reviews/{reviewId}` | Cập nhật đánh giá PC Case của mình | User |
 | DELETE | `/api/pc-cases/{id}/reviews/{reviewId}` | Xoá đánh giá PC Case của mình | User |
+
+### Vouchers (Mã giảm giá)
+| Method | Endpoint | Mô tả | Auth |
+|--------|----------|-------|------|
+| GET | /api/vouchers | Danh sách voucher công khai đang có hiệu lực | Public |
+| GET | /api/vouchers/available | Danh sách các voucher khả dụng hiện tại | Public |
+| GET | /api/vouchers/{code} | Chi tiết voucher theo mã code | Public |
+| POST | /api/vouchers/validate | Kiểm tra tính hợp lệ và tính trước mức giảm giá | Public / User |
+| POST | /api/admin/vouchers | Tạo mã voucher mới | Admin |
+| GET | /api/admin/vouchers | Danh sách tất cả voucher (lọc, tìm kiếm, phân trang) | Admin |
+| GET | /api/admin/vouchers/{id} | Chi tiết voucher kèm thống kê sử dụng | Admin |
+| PUT | /api/admin/vouchers/{id} | Cập nhật thông tin voucher | Admin |
+| DELETE | /api/admin/vouchers/{id} | Xóa hoặc vô hiệu hóa voucher | Admin |
+| PATCH | /api/admin/vouchers/{id}/status | Bật / tắt nhanh trạng thái hoạt động | Admin |
 
 ### Statistics (Admin)
 | Method | Endpoint | Mô tả | Auth |
@@ -702,8 +735,8 @@ jwt.refresh-token-expiry-days: 30
 
 # Google Gemini
 gemini.api-key: <api-key>
-gemini.embedding-model: text-embedding-004
-gemini.chat-model: gemini-1.5-flash
+gemini.embedding-model: gemini-embedding-2
+gemini.chat-model: gemini-3.5-flash-lite
 
 # Cloudinary (hoặc AWS S3)
 cloudinary.cloud-name: <cloud-name>
@@ -711,7 +744,7 @@ cloudinary.api-key: <api-key>
 cloudinary.api-secret: <api-secret>
 
 # pgvector
-pgvector.embedding-dimension: 768
+pgvector.embedding-dimension: 3072
 pgvector.top-k: 5
 
 # Resend (Email Service)
@@ -742,10 +775,10 @@ VITE_API_BASE_URL=http://localhost:8080/api
 - [ ] Implement CRUD Products (API + UI)
 - [ ] Implement Cart & Order (API + UI)
 - [ ] Implement PC Case management + Compatibility Checker
-- [ ] Implement RAG pipeline (embedding + vector search)
+- [x] Implement RAG pipeline (embedding + vector search)
 - [ ] Implement Chatbot UI + API
-- [ ] Implement PC Config Suggestion (query DB + prompt Gemini)
-- [ ] Implement Image Upload (Cloudinary / S3)
+- [x] Implement PC Config Suggestion (query DB + prompt Gemini)
+- [x] Implement Image Upload (Cloudinary / S3)
 - [ ] Implement Product Reviews (API + UI — đánh giá, chấm sao)
 - [ ] Implement Admin Statistics Dashboard (API + UI — doanh thu, đơn hàng, top sản phẩm, người dùng mới)
 - [ ] Viết tài liệu API (Swagger / OpenAPI)

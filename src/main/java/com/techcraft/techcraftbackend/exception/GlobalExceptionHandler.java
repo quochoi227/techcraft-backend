@@ -16,7 +16,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AppException.class)
     public ResponseEntity<ApiResponse<Object>> handleAppException(AppException ex) {
-        ApiResponse<Object> response = ApiResponse.error(ex.getMessage());
+        ApiResponse<Object> response = ApiResponse.error(ex.getMessage(), ex.getData());
         return ResponseEntity.status(ex.getStatus()).body(response);
     }
 
@@ -33,6 +33,24 @@ public class GlobalExceptionHandler {
                 .data(errors)
                 .build();
 
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMethodArgumentTypeMismatch(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        String message = String.format("Tham số '%s' có giá trị không hợp lệ: '%s'", ex.getName(), ex.getValue());
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.error(message));
+    }
+
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ApiResponse<Object>> handleAccessDeniedException(org.springframework.security.access.AccessDeniedException ex) {
+        ApiResponse<Object> response = ApiResponse.error("Bạn không có quyền truy cập tài nguyên này.");
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMaxUploadSizeExceeded(org.springframework.web.multipart.MaxUploadSizeExceededException ex) {
+        ApiResponse<Object> response = ApiResponse.error("Kích thước tệp tải lên vượt quá giới hạn tối đa cho phép.");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
