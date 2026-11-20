@@ -543,9 +543,10 @@ public class OrderServiceImpl implements OrderService {
             subtotalAmount = subtotalAmount.add(unitPrice.multiply(BigDecimal.valueOf(quantity)));
         }
 
-        // 8.1 Áp dụng voucher giảm giá nếu có
+        // 8.1 Áp dụng voucher giảm giá nếu có (gán thông tin chiết khấu trước khi persist Order)
+        Voucher appliedVoucher = null;
         if (request != null && request.getVoucherCode() != null && !request.getVoucherCode().isBlank()) {
-            voucherService.applyVoucherToOrder(request.getVoucherCode(), subtotalAmount, user, order);
+            appliedVoucher = voucherService.applyVoucherToOrder(request.getVoucherCode(), subtotalAmount, user, order);
         } else {
             order.setSubtotalAmount(subtotalAmount);
             order.setDiscountAmount(BigDecimal.ZERO);
@@ -553,6 +554,11 @@ public class OrderServiceImpl implements OrderService {
         }
 
         Order savedOrder = orderRepository.save(order);
+
+        // Ghi nhận VoucherUsage sau khi Order đã được persist để tránh TransientPropertyValueException
+        if (appliedVoucher != null) {
+            voucherService.recordVoucherUsage(appliedVoucher, user, savedOrder, savedOrder.getDiscountAmount());
+        }
 
         // 9. Dọn dẹp giỏ hàng
         if (isFromCart) {
