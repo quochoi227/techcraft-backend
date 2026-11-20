@@ -30,6 +30,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -64,6 +65,9 @@ class OrderServiceTest {
 
     @Mock
     private VoucherService voucherService;
+
+    @Mock
+    private NotificationService notificationService;
 
     @InjectMocks
     private OrderServiceImpl orderService;
@@ -559,6 +563,76 @@ class OrderServiceTest {
 
         OrderResponse response = orderService.createOrder(sampleUser.getId(), request);
         assertNotNull(response);
+    }
+
+    @Test
+    @DisplayName("Đặt hàng kèm voucher: lưu Order trước khi ghi nhận VoucherUsage")
+    void createOrder_WithVoucher_SavesOrderBeforeRecordingVoucherUsage() {
+        CreateOrderRequest request = CreateOrderRequest.builder()
+                .shippingAddress("789 Nguyen Hue, Quan 1, TP.HCM")
+                .voucherCode("SUMMER10")
+                .items(List.of(
+                        CreateOrderItemRequest.builder()
+                                .productId(sampleCpu.getId())
+                                .quantity(2)
+                                .build()
+                ))
+                .build();
+
+        Voucher voucher = Voucher.builder()
+                .id(UUID.randomUUID())
+                .code("SUMMER10")
+                .build();
+
+        BigDecimal expectedSubtotal = BigDecimal.valueOf(9000000);
+        BigDecimal expectedDiscount = BigDecimal.valueOf(900000);
+        BigDecimal expectedTotal = BigDecimal.valueOf(8100000);
+
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(sampleUser));
+        when(productRepository.findById(sampleCpu.getId())).thenReturn(Optional.of(sampleCpu));
+        when(voucherService.applyVoucherToOrder(eq("SUMMER10"), eq(expectedSubtotal), eq(sampleUser), any(Order.class)))
+                .thenAnswer(invocation -> {
+                    Order orderArg = invocation.getArgument(3);
+                    assertNull(orderArg.getId(), "Order chưa được persist tại bước applyVoucherToOrder");
+                    orderArg.setVoucher(voucher);
+                    orderArg.setVoucherCode("SUMMER10");
+                    orderArg.setSubtotalAmount(expectedSubtotal);
+                    orderArg.setDiscountAmount(expectedDiscount);
+                    orderArg.setTotalAmount(expectedTotal);
+                    return voucher;
+                });
+
+        UUID generatedOrderId = UUID.randomUUID();
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> {
+            Order orderArg = invocation.getArgument(0);
+            orderArg.setId(generatedOrderId);
+            return orderArg;
+        });
+
+        OrderResponse expectedResponse = OrderResponse.builder()
+                .id(generatedOrderId)
+                .voucherCode("SUMMER10")
+                .subtotalAmount(expectedSubtotal)
+                .discountAmount(expectedDiscount)
+                .totalAmount(expectedTotal)
+                .build();
+        when(orderMapper.toResponse(any(Order.class))).thenReturn(expectedResponse);
+
+        OrderResponse response = orderService.createOrder("customer@example.com", request);
+
+        assertNotNull(response);
+        assertEquals("SUMMER10", response.getVoucherCode());
+        assertEquals(0, expectedTotal.compareTo(response.getTotalAmount()));
+
+        InOrder inOrder = inOrder(voucherService, orderRepository);
+        inOrder.verify(voucherService).applyVoucherToOrder(eq("SUMMER10"), eq(expectedSubtotal), eq(sampleUser), any(Order.class));
+        inOrder.verify(orderRepository).save(any(Order.class));
+        inOrder.verify(voucherService).recordVoucherUsage(
+                eq(voucher),
+                eq(sampleUser),
+                argThat(savedOrder -> generatedOrderId.equals(savedOrder.getId())),
+                eq(expectedDiscount)
+        );
     }
 
     @Test

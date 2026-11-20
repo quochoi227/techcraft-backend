@@ -404,7 +404,39 @@ class VoucherServiceTest {
         assertEquals(0, BigDecimal.valueOf(900000).compareTo(order.getTotalAmount()));
 
         verify(voucherRepository).save(samplePercentVoucher);
-        verify(voucherUsageRepository).save(any(VoucherUsage.class));
+        verify(voucherUsageRepository, never()).save(any(VoucherUsage.class));
+    }
+
+    @Test
+    @DisplayName("Ghi nhận lịch sử sử dụng voucher thành công khi đơn hàng đã được lưu")
+    void recordVoucherUsage_Success() {
+        Order persistedOrder = Order.builder()
+                .id(UUID.randomUUID())
+                .user(sampleUser)
+                .build();
+        BigDecimal discountAmount = BigDecimal.valueOf(100000);
+
+        voucherService.recordVoucherUsage(samplePercentVoucher, sampleUser, persistedOrder, discountAmount);
+
+        verify(voucherUsageRepository).save(argThat(usage ->
+                usage.getVoucher().equals(samplePercentVoucher)
+                        && usage.getUser().equals(sampleUser)
+                        && usage.getOrder().equals(persistedOrder)
+                        && BigDecimal.valueOf(100000).compareTo(usage.getDiscountAmount()) == 0
+        ));
+    }
+
+    @Test
+    @DisplayName("Ghi nhận lịch sử sử dụng voucher thất bại khi đơn hàng chưa được lưu")
+    void recordVoucherUsage_ThrowsIllegalState_WhenOrderNotPersisted() {
+        Order transientOrder = Order.builder()
+                .user(sampleUser)
+                .build();
+
+        assertThrows(IllegalStateException.class, () ->
+                voucherService.recordVoucherUsage(samplePercentVoucher, sampleUser, transientOrder, BigDecimal.valueOf(100000))
+        );
+        verifyNoInteractions(voucherUsageRepository);
     }
 
     @Test

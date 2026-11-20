@@ -327,16 +327,25 @@ public class VoucherServiceImpl implements VoucherService {
         order.setDiscountAmount(discountAmount);
         order.setTotalAmount(finalAmount);
 
-        // Tạo bản ghi lịch sử sử dụng voucher
+        return voucher;
+    }
+
+    @Override
+    public void recordVoucherUsage(Voucher voucher, User user, Order order, BigDecimal discountAmount) {
+        if (voucher == null) {
+            return;
+        }
+        if (order == null || order.getId() == null) {
+            throw new IllegalStateException("Đơn hàng phải được lưu trước khi ghi nhận lịch sử sử dụng mã giảm giá.");
+        }
+
         VoucherUsage usage = VoucherUsage.builder()
                 .voucher(voucher)
                 .user(user)
                 .order(order)
-                .discountAmount(discountAmount)
+                .discountAmount(discountAmount != null ? discountAmount : BigDecimal.ZERO)
                 .build();
         voucherUsageRepository.save(usage);
-
-        return voucher;
     }
 
     @Override

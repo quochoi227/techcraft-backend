@@ -40,5 +40,7 @@ public interface VoucherService {
 
     Voucher applyVoucherToOrder(String voucherCode, BigDecimal subtotalAmount, User user, Order order);
 
+    void recordVoucherUsage(Voucher voucher, User user, Order order, BigDecimal discountAmount);
+
     void restoreVoucherUsage(Order order);
 }
