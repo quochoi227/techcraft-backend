@@ -85,4 +85,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
            "ORDER BY o.createdAt ASC")
     List<OrderRevenueProjection> findAllRevenueOrders(
             @Param("status") OrderStatus status);
+
+    Optional<Order> findByOrderCode(String orderCode);
 }

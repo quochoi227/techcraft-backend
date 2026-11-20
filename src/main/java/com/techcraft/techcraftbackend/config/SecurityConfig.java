@@ -70,6 +70,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/vouchers/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/vouchers/validate").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/chat").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/payment/sepay/webhook").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .anyRequest().authenticated()

@@ -20,6 +20,7 @@ public interface OrderMapper {
     @Mapping(target = "subtotalAmount", expression = "java(resolveSubtotalAmount(order))")
     @Mapping(target = "discountAmount", expression = "java(resolveDiscountAmount(order))")
     @Mapping(target = "voucherCode", source = "voucherCode")
+    @Mapping(target = "paymentQrUrl", expression = "java(resolvePaymentQrUrl(order))")
     @Mapping(target = "totalQuantity", expression = "java(calculateTotalQuantity(order))")
     @Mapping(target = "items", source = "items")
     OrderResponse toResponse(Order order);
@@ -86,5 +87,16 @@ public interface OrderMapper {
         return order.getItems().stream()
                 .mapToInt(i -> i.getQuantity() != null ? i.getQuantity() : 0)
                 .sum();
+    }
+
+    default String resolvePaymentQrUrl(Order order) {
+        if (order == null || order.getPaymentMethod() != com.techcraft.techcraftbackend.enums.PaymentMethod.SEPAY) {
+            return null;
+        }
+        long amount = order.getTotalAmount() != null ? order.getTotalAmount().longValue() : 0L;
+        String des = order.getOrderCode() != null && !order.getOrderCode().isBlank()
+                ? order.getOrderCode()
+                : (order.getId() != null ? order.getId().toString().substring(0, 8).toUpperCase() : "");
+        return "https://qr.sepay.vn/img?bank=Vietcombank&acc=0000000001&template=compact&amount=" + amount + "&des=" + des;
     }
 }

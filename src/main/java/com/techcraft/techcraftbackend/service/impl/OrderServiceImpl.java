@@ -10,6 +10,7 @@ import com.techcraft.techcraftbackend.dto.response.PageResponse;
 import com.techcraft.techcraftbackend.entity.*;
 import com.techcraft.techcraftbackend.enums.OrderStatus;
 import com.techcraft.techcraftbackend.enums.PaymentMethod;
+import com.techcraft.techcraftbackend.enums.PaymentStatus;
 import com.techcraft.techcraftbackend.enums.Role;
 import com.techcraft.techcraftbackend.exception.AppException;
 import com.techcraft.techcraftbackend.exception.BadRequestException;
@@ -495,10 +496,14 @@ public class OrderServiceImpl implements OrderService {
 
         String note = (request != null) ? request.getNote() : null;
 
+        String orderCode = "TC" + UUID.randomUUID().toString().replace("-", "").substring(0, 8).toUpperCase();
+
         Order order = Order.builder()
                 .user(user)
+                .orderCode(orderCode)
                 .status(OrderStatus.PENDING)
                 .paymentMethod(paymentMethod)
+                .paymentStatus(PaymentStatus.UNPAID)
                 .shippingAddress(shippingAddress)
                 .note(note)
                 .totalAmount(BigDecimal.ZERO)
