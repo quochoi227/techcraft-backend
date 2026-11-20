@@ -18,6 +18,8 @@ public interface NotificationService {
 
     void notifyUserOrderStatusChanged(Order order, OrderStatus oldStatus, OrderStatus newStatus);
 
+    void notifyOrderPaid(Order order, java.math.BigDecimal paidAmount);
+
     // Truy vấn thông báo
     PageResponse<OrderNotificationDto> getUserNotifications(String email, Pageable pageable);
 

@@ -37,7 +37,7 @@ public class NotificationServiceImpl implements NotificationService {
     public void notifyAdminOrderCreated(Order order) {
         if (order == null) return;
 
-        String orderCode = getOrderCode(order.getId());
+        String orderCode = resolveOrderCode(order);
         String customerName = order.getUser() != null && order.getUser().getFullName() != null
                 ? order.getUser().getFullName()
                 : (order.getUser() != null ? order.getUser().getEmail() : "Khách hàng");
@@ -73,7 +73,7 @@ public class NotificationServiceImpl implements NotificationService {
     public void notifyAdminOrderCancelled(Order order, User cancelledBy) {
         if (order == null) return;
 
-        String orderCode = getOrderCode(order.getId());
+        String orderCode = resolveOrderCode(order);
         String customerName = cancelledBy != null && cancelledBy.getFullName() != null
                 ? cancelledBy.getFullName()
                 : (cancelledBy != null ? cancelledBy.getEmail() : "Khách hàng");
@@ -108,7 +108,7 @@ public class NotificationServiceImpl implements NotificationService {
     public void notifyUserOrderStatusChanged(Order order, OrderStatus oldStatus, OrderStatus newStatus) {
         if (order == null || order.getUser() == null) return;
 
-        String orderCode = getOrderCode(order.getId());
+        String orderCode = resolveOrderCode(order);
         String statusLabel = getStatusLabel(newStatus);
 
         String title = "Cập nhật đơn hàng";
@@ -134,6 +134,74 @@ public class NotificationServiceImpl implements NotificationService {
         String userDestination = "/topic/users/" + order.getUser().getId() + "/notifications";
         log.info("Broadcasting ORDER_STATUS_CHANGED to {} for order #{}", userDestination, orderCode);
         messagingTemplate.convertAndSend(userDestination, dto);
+    }
+
+    @Override
+    @Transactional
+    public void notifyOrderPaid(Order order, java.math.BigDecimal paidAmount) {
+        if (order == null) return;
+
+        String orderCode = resolveOrderCode(order);
+        String customerName = order.getUser() != null && order.getUser().getFullName() != null
+                ? order.getUser().getFullName()
+                : (order.getUser() != null ? order.getUser().getEmail() : "Khách hàng");
+        String customerEmail = order.getUser() != null ? order.getUser().getEmail() : null;
+
+        // 1. Thông báo cho người dùng
+        if (order.getUser() != null) {
+            String userTitle = "Thanh toán thành công!";
+            String userMessage = String.format("Đơn hàng #%s của bạn đã được thanh toán thành công (%,.0f ₫) qua SePay.",
+                    orderCode, paidAmount != null ? paidAmount : order.getTotalAmount());
+
+            Notification userNoti = Notification.builder()
+                    .recipient(order.getUser())
+                    .type(NotificationType.ORDER_PAID)
+                    .orderId(order.getId())
+                    .orderCode(orderCode)
+                    .title(userTitle)
+                    .message(userMessage)
+                    .status(order.getStatus())
+                    .totalAmount(order.getTotalAmount())
+                    .customerName(customerName)
+                    .customerEmail(customerEmail)
+                    .read(false)
+                    .build();
+
+            Notification savedUserNoti = notificationRepository.save(userNoti);
+            OrderNotificationDto userDto = toDto(savedUserNoti);
+            messagingTemplate.convertAndSend("/topic/users/" + order.getUser().getId() + "/notifications", userDto);
+        }
+
+        // 2. Thông báo cho Admin
+        String adminTitle = "Đơn hàng đã thanh toán!";
+        String adminMessage = String.format("Đơn hàng #%s của khách hàng %s đã được thanh toán qua SePay (%,.0f ₫).",
+                orderCode, customerName, paidAmount != null ? paidAmount : order.getTotalAmount());
+
+        Notification adminNoti = Notification.builder()
+                .targetRole(Role.ADMIN)
+                .type(NotificationType.ORDER_PAID)
+                .orderId(order.getId())
+                .orderCode(orderCode)
+                .title(adminTitle)
+                .message(adminMessage)
+                .status(order.getStatus())
+                .totalAmount(order.getTotalAmount())
+                .customerName(customerName)
+                .customerEmail(customerEmail)
+                .read(false)
+                .build();
+
+        Notification savedAdminNoti = notificationRepository.save(adminNoti);
+        OrderNotificationDto adminDto = toDto(savedAdminNoti);
+        messagingTemplate.convertAndSend("/topic/admin/notifications", adminDto);
+
+        // 3. Phát sóng trực tiếp tới topic riêng của đơn hàng để Checkout view bắt sự kiện
+        java.util.Map<String, Object> paymentPayload = new java.util.HashMap<>();
+        paymentPayload.put("orderId", order.getId().toString());
+        paymentPayload.put("orderCode", orderCode);
+        paymentPayload.put("paymentStatus", "PAID");
+        paymentPayload.put("orderStatus", order.getStatus() != null ? order.getStatus().name() : "CONFIRMED");
+        messagingTemplate.convertAndSend("/topic/orders/" + order.getId() + "/payment", (Object) paymentPayload);
     }
 
     @Override
@@ -197,6 +265,14 @@ public class NotificationServiceImpl implements NotificationService {
     private User getUserByEmail(String email) {
         return userRepository.findByEmail(email != null ? email.toLowerCase().trim() : null)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng với email: " + email));
+    }
+
+    private String resolveOrderCode(Order order) {
+        if (order == null) return "";
+        if (order.getOrderCode() != null && !order.getOrderCode().isBlank()) {
+            return order.getOrderCode();
+        }
+        return getOrderCode(order.getId());
     }
 
     private String getOrderCode(UUID orderId) {

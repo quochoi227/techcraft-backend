@@ -2,6 +2,7 @@ package com.techcraft.techcraftbackend.dto.response;
 
 import com.techcraft.techcraftbackend.enums.OrderStatus;
 import com.techcraft.techcraftbackend.enums.PaymentMethod;
+import com.techcraft.techcraftbackend.enums.PaymentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,12 +20,15 @@ import java.util.UUID;
 public class OrderResponse {
 
     private UUID id;
+    private String orderCode;
     private UUID userId;
     private String userEmail;
     private String userFullName;
     private String userPhone;
     private OrderStatus status;
     private PaymentMethod paymentMethod;
+    private PaymentStatus paymentStatus;
+    private String paymentQrUrl;
     private String shippingAddress;
     private String note;
     private BigDecimal subtotalAmount;
