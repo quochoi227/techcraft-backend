@@ -76,15 +76,16 @@ public class RagServiceImpl implements RagService {
 
         RagDocument savedDoc = ragDocumentRepository.saveAndFlush(document);
 
-        // 4. Tạo vector embeddings và lưu Chunks bằng JdbcTemplate với CAST(? AS vector)
+        // 4. Tạo vector embeddings theo batch và lưu Chunks bằng JdbcTemplate với CAST(? AS vector)
+        List<float[]> embeddings = geminiService.generateEmbeddings(textChunks);
         String insertSql = "INSERT INTO rag_chunks (id, document_id, chunk_index, content, embedding, created_at) " +
                 "VALUES (?, ?, ?, ?, cast(? as vector), ?)";
 
-        List<Object[]> batchArgs = new ArrayList<>();
+        List<Object[]> batchArgs = new ArrayList<>(textChunks.size());
         Instant now = Instant.now();
         for (int i = 0; i < textChunks.size(); i++) {
             String chunkContent = textChunks.get(i);
-            float[] embeddingArray = geminiService.generateEmbedding(chunkContent);
+            float[] embeddingArray = embeddings.get(i);
             String vectorString = new PGvector(embeddingArray).getValue();
             UUID chunkId = UUID.randomUUID();
 

@@ -57,7 +57,7 @@ class ProductControllerTest {
                 .stockQuantity(15)
                 .category(ProductCategory.CPU)
                 .description("Gaming CPU")
-                .detail(Map.of("socket", "AM5", "cores", 8, "threads", 16, "base_clock_ghz", 4.2, "boost_clock_ghz", 5.0, "tdp_w", 120, "memory_type", "DDR5", "integrated_gpu", true))
+                .detail(Map.of("socket", "AM5", "cores", 8, "threads", 16, "baseClockGhz", 4.2, "boostClockGhz", 5.0, "tdpW", 120, "memoryType", "DDR5", "integratedGpu", true))
                 .build();
 
         ProductResponse response = ProductResponse.builder()
@@ -134,35 +134,35 @@ class ProductControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void createProduct_WithSnakeCasePayload_Success() throws Exception {
+    void createProduct_WithCamelCaseJsonPayload_Success() throws Exception {
         String jsonPayload = """
         {
           "name": "Intel Core i7-13700K",
           "price": 10500000.00,
-          "stock_quantity": 20,
+          "stockQuantity": 20,
           "category": "CPU",
           "description": "Vi xử lý Intel Gen 13 mạnh mẽ cho gaming và đồ họa",
-          "is_active": true,
+          "isActive": true,
           "detail": {
             "socket": "LGA1700",
             "cores": 16,
             "threads": 24,
-            "base_clock_ghz": 3.4,
-            "boost_clock_ghz": 5.4,
-            "tdp_w": 125,
-            "memory_type": "DDR4/DDR5",
-            "integrated_gpu": true
+            "baseClockGhz": 3.4,
+            "boostClockGhz": 5.4,
+            "tdpW": 125,
+            "memoryType": "DDR4/DDR5",
+            "integratedGpu": true
           },
           "images": [
             {
-              "image_url": "https://res.cloudinary.com/techcraft/cpu-i7-primary.png",
-              "is_primary": true,
-              "display_order": 0
+              "imageUrl": "https://res.cloudinary.com/techcraft/cpu-i7-primary.png",
+              "isPrimary": true,
+              "displayOrder": 0
             },
             {
-              "image_url": "https://res.cloudinary.com/techcraft/cpu-i7-box.png",
-              "is_primary": false,
-              "display_order": 1
+              "imageUrl": "https://res.cloudinary.com/techcraft/cpu-i7-box.png",
+              "isPrimary": false,
+              "displayOrder": 1
             }
           ]
         }
@@ -185,7 +185,7 @@ class ProductControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.name").value("Intel Core i7-13700K"))
-                .andExpect(jsonPath("$.data.stock_quantity").value(20));
+                .andExpect(jsonPath("$.data.stockQuantity").value(20));
     }
 
     @Test
@@ -218,9 +218,9 @@ class ProductControllerTest {
                 .andExpect(jsonPath("$.message").value("Lấy danh sách sản phẩm thành công!"))
                 .andExpect(jsonPath("$.data.page").value(0))
                 .andExpect(jsonPath("$.data.size").value(12))
-                .andExpect(jsonPath("$.data.total_elements").value(1))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.content[0].name").value("Intel Core i5-13400F"))
-                .andExpect(jsonPath("$.data.content[0].stock_quantity").value(15));
+                .andExpect(jsonPath("$.data.content[0].stockQuantity").value(15));
     }
 
     @Test
@@ -323,7 +323,7 @@ class ProductControllerTest {
                 .stockQuantity(18)
                 .category(ProductCategory.CPU)
                 .description("Updated Gaming CPU")
-                .detail(Map.of("socket", "AM5", "cores", 8, "threads", 16, "base_clock_ghz", 4.2, "boost_clock_ghz", 5.0, "tdp_w", 120, "memory_type", "DDR5", "integrated_gpu", true))
+                .detail(Map.of("socket", "AM5", "cores", 8, "threads", 16, "baseClockGhz", 4.2, "boostClockGhz", 5.0, "tdpW", 120, "memoryType", "DDR5", "integratedGpu", true))
                 .isActive(true)
                 .build();
 
@@ -351,31 +351,31 @@ class ProductControllerTest {
 
     @Test
     @WithMockUser(roles = "ADMIN")
-    void updateProduct_WithSnakeCasePayload_Success() throws Exception {
+    void updateProduct_WithCamelCaseJsonPayload_Success() throws Exception {
         UUID id = UUID.randomUUID();
         String jsonPayload = """
         {
           "name": "Intel Core i7-13700K Updated",
           "price": 10900000.00,
-          "stock_quantity": 25,
+          "stockQuantity": 25,
           "category": "CPU",
           "description": "Vi xử lý Intel Gen 13 cập nhật",
-          "is_active": false,
+          "isActive": false,
           "detail": {
             "socket": "LGA1700",
             "cores": 16,
             "threads": 24,
-            "base_clock_ghz": 3.4,
-            "boost_clock_ghz": 5.4,
-            "tdp_w": 125,
-            "memory_type": "DDR4/DDR5",
-            "integrated_gpu": true
+            "baseClockGhz": 3.4,
+            "boostClockGhz": 5.4,
+            "tdpW": 125,
+            "memoryType": "DDR4/DDR5",
+            "integratedGpu": true
           },
           "images": [
             {
-              "image_url": "https://res.cloudinary.com/techcraft/cpu-i7-primary.png",
-              "is_primary": true,
-              "display_order": 0
+              "imageUrl": "https://res.cloudinary.com/techcraft/cpu-i7-primary.png",
+              "isPrimary": true,
+              "displayOrder": 0
             }
           ]
         }
@@ -398,8 +398,8 @@ class ProductControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.name").value("Intel Core i7-13700K Updated"))
-                .andExpect(jsonPath("$.data.stock_quantity").value(25))
-                .andExpect(jsonPath("$.data.is_active").value(false));
+                .andExpect(jsonPath("$.data.stockQuantity").value(25))
+                .andExpect(jsonPath("$.data.active").value(false));
     }
 
     @Test

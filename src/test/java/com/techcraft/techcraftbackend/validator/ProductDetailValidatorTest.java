@@ -31,18 +31,18 @@ class ProductDetailValidatorTest {
         cpuDetail.put("socket", "LGA1700");
         cpuDetail.put("cores", 8);
         cpuDetail.put("threads", 16);
-        cpuDetail.put("base_clock_ghz", 3.6);
-        cpuDetail.put("boost_clock_ghz", 5.2);
-        cpuDetail.put("tdp_w", 65);
-        cpuDetail.put("memory_type", "DDR4/DDR5");
-        cpuDetail.put("integrated_gpu", true);
+        cpuDetail.put("baseClockGhz", 3.6);
+        cpuDetail.put("boostClockGhz", 5.2);
+        cpuDetail.put("tdpW", 65);
+        cpuDetail.put("memoryType", "DDR4/DDR5");
+        cpuDetail.put("integratedGpu", true);
 
         Map<String, Object> result = validator.validateAndNormalize(ProductCategory.CPU, cpuDetail);
 
         assertNotNull(result);
         assertEquals("LGA1700", result.get("socket"));
         assertEquals(8, result.get("cores"));
-        assertEquals(true, result.get("integrated_gpu"));
+        assertEquals(true, result.get("integratedGpu"));
     }
 
     @Test
@@ -50,11 +50,11 @@ class ProductDetailValidatorTest {
         Map<String, Object> cpuDetail = new HashMap<>();
         cpuDetail.put("cores", 8);
         cpuDetail.put("threads", 16);
-        cpuDetail.put("base_clock_ghz", 3.6);
-        cpuDetail.put("boost_clock_ghz", 5.2);
-        cpuDetail.put("tdp_w", 65);
-        cpuDetail.put("memory_type", "DDR4/DDR5");
-        cpuDetail.put("integrated_gpu", true);
+        cpuDetail.put("baseClockGhz", 3.6);
+        cpuDetail.put("boostClockGhz", 5.2);
+        cpuDetail.put("tdpW", 65);
+        cpuDetail.put("memoryType", "DDR4/DDR5");
+        cpuDetail.put("integratedGpu", true);
 
         BadRequestException ex = assertThrows(BadRequestException.class, () ->
                 validator.validateAndNormalize(ProductCategory.CPU, cpuDetail)
@@ -68,40 +68,40 @@ class ProductDetailValidatorTest {
         cpuDetail.put("socket", "LGA1700");
         cpuDetail.put("cores", 8);
         cpuDetail.put("threads", 16);
-        cpuDetail.put("base_clock_ghz", 4.0);
-        cpuDetail.put("boost_clock_ghz", 3.5);
-        cpuDetail.put("tdp_w", 65);
-        cpuDetail.put("memory_type", "DDR5");
-        cpuDetail.put("integrated_gpu", false);
+        cpuDetail.put("baseClockGhz", 4.0);
+        cpuDetail.put("boostClockGhz", 3.5);
+        cpuDetail.put("tdpW", 65);
+        cpuDetail.put("memoryType", "DDR5");
+        cpuDetail.put("integratedGpu", false);
 
         BadRequestException ex = assertThrows(BadRequestException.class, () ->
                 validator.validateAndNormalize(ProductCategory.CPU, cpuDetail)
         );
-        assertTrue(ex.getMessage().contains("Xung nhịp tối đa"));
+        assertTrue(ex.getMessage().contains("phải lớn hơn hoặc bằng"));
     }
 
     @Test
     void validateAndNormalize_ValidGpu_Success() {
         Map<String, Object> gpuDetail = new HashMap<>();
-        gpuDetail.put("vram_gb", 12);
-        gpuDetail.put("vram_type", "GDDR6X");
-        gpuDetail.put("tdp_w", 200);
-        gpuDetail.put("pcie_slot", "x16");
-        gpuDetail.put("length_mm", 320);
+        gpuDetail.put("vramGb", 12);
+        gpuDetail.put("vramType", "GDDR6X");
+        gpuDetail.put("tdpW", 200);
+        gpuDetail.put("pcieSlot", "x16");
+        gpuDetail.put("lengthMm", 320);
 
         Map<String, Object> result = validator.validateAndNormalize(ProductCategory.GPU, gpuDetail);
 
         assertNotNull(result);
-        assertEquals(12, result.get("vram_gb"));
-        assertEquals("GDDR6X", result.get("vram_type"));
+        assertEquals(12, result.get("vramGb"));
+        assertEquals("GDDR6X", result.get("vramType"));
     }
 
     @Test
     void validateAndNormalize_AirCoolerWithoutHeight_ThrowsBadRequestException() {
         Map<String, Object> coolerDetail = new HashMap<>();
         coolerDetail.put("type", "Air");
-        coolerDetail.put("socket_support", List.of("LGA1700", "AM5"));
-        coolerDetail.put("tdp_support_w", 200);
+        coolerDetail.put("socketSupport", List.of("LGA1700", "AM5"));
+        coolerDetail.put("tdpSupportW", 200);
 
         BadRequestException ex = assertThrows(BadRequestException.class, () ->
                 validator.validateAndNormalize(ProductCategory.CPU_COOLER, coolerDetail)

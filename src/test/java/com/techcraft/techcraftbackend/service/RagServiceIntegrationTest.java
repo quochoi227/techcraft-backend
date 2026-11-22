@@ -11,6 +11,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -30,6 +31,10 @@ class RagServiceIntegrationTest {
         for (int i = 0; i < 3072; i++) {
             dummyVector[i] = 0.01f;
         }
+        when(geminiService.generateEmbeddings(anyList())).thenAnswer(invocation -> {
+            List<String> texts = invocation.getArgument(0);
+            return texts.stream().map(t -> dummyVector).toList();
+        });
         when(geminiService.generateEmbedding(anyString())).thenReturn(dummyVector);
 
         String title = "Chính sách kiểm thử tích hợp " + System.currentTimeMillis();
