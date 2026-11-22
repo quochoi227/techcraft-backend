@@ -40,61 +40,61 @@ class CompatibilityCheckerServiceTest {
                 "socket", "LGA1700",
                 "cores", 10,
                 "threads", 16,
-                "base_clock_ghz", 2.5,
-                "boost_clock_ghz", 4.6,
-                "tdp_w", 65,
-                "memory_type", "DDR4/DDR5",
-                "integrated_gpu", false
+                "baseClockGhz", 2.5,
+                "boostClockGhz", 4.6,
+                "tdpW", 65,
+                "memoryType", "DDR4/DDR5",
+                "integratedGpu", false
         )));
         validComponents.put(ProductCategory.MAINBOARD, buildProduct(ProductCategory.MAINBOARD, "MSI MAG B760M MORTAR WIFI II", 10, Map.of(
                 "socket", "LGA1700",
-                "form_factor", "mATX",
+                "formFactor", "mATX",
                 "chipset", "B760",
-                "memory_type", "DDR5",
-                "memory_slots", 4,
-                "max_memory_gb", 256,
-                "m2_slots", 3,
-                "pcie_version", "5.0"
+                "memoryType", "DDR5",
+                "memorySlots", 4,
+                "maxMemoryGb", 256,
+                "m2Slots", 3,
+                "pcieVersion", "5.0"
         )));
         validComponents.put(ProductCategory.RAM, buildProduct(ProductCategory.RAM, "Corsair Vengeance RGB 32GB DDR5", 10, Map.of(
                 "type", "DDR5",
-                "speed_mhz", 6000,
-                "capacity_gb", 16,
+                "speedMhz", 6000,
+                "capacityGb", 16,
                 "sticks", 2,
-                "total_gb", 32
+                "totalGb", 32
         )));
         validComponents.put(ProductCategory.GPU, buildProduct(ProductCategory.GPU, "MSI RTX 4060 VENTUS 2X", 10, Map.of(
-                "vram_gb", 8,
-                "vram_type", "GDDR6",
-                "tdp_w", 115,
-                "pcie_slot", "x16",
-                "length_mm", 199
+                "vramGb", 8,
+                "vramType", "GDDR6",
+                "tdpW", 115,
+                "pcieSlot", "x16",
+                "lengthMm", 199
         )));
         validComponents.put(ProductCategory.STORAGE, buildProduct(ProductCategory.STORAGE, "Samsung 990 PRO 1TB", 10, Map.of(
                 "type", "NVMe SSD",
-                "capacity_gb", 1000,
+                "capacityGb", 1000,
                 "interface", "M.2 PCIe 4.0",
-                "read_mbps", 7450,
-                "write_mbps", 6900
+                "readMbps", 7450,
+                "writeMbps", 6900
         )));
         validComponents.put(ProductCategory.PSU, buildProduct(ProductCategory.PSU, "MSI MAG A650BN 650W", 10, Map.of(
-                "wattage_w", 650,
+                "wattageW", 650,
                 "efficiency", "80+ Bronze",
                 "modular", "Non-modular",
-                "form_factor", "ATX"
+                "formFactor", "ATX"
         )));
         validComponents.put(ProductCategory.CASE, buildProduct(ProductCategory.CASE, "ASUS Prime AP201", 10, Map.of(
-                "form_factor_support", List.of("mATX", "ITX"),
-                "max_gpu_length_mm", 338,
-                "max_cooler_height_mm", 170,
-                "drive_bays_35", 3,
-                "drive_bays_25", 4
+                "formFactorSupport", List.of("mATX", "ITX"),
+                "maxGpuLengthMm", 338,
+                "maxCoolerHeightMm", 170,
+                "driveBays35", 3,
+                "driveBays25", 4
         )));
         validComponents.put(ProductCategory.CPU_COOLER, buildProduct(ProductCategory.CPU_COOLER, "DeepCool AK400 Digital", 10, Map.of(
                 "type", "Air",
-                "socket_support", List.of("LGA1700", "AM5", "AM4"),
-                "height_mm", 156,
-                "tdp_support_w", 220
+                "socketSupport", List.of("LGA1700", "AM5", "AM4"),
+                "heightMm", 156,
+                "tdpSupportW", 220
         )));
     }
 
@@ -112,11 +112,11 @@ class CompatibilityCheckerServiceTest {
                 "socket", "AM5",
                 "cores", 6,
                 "threads", 12,
-                "base_clock_ghz", 4.7,
-                "boost_clock_ghz", 5.3,
-                "tdp_w", 105,
-                "memory_type", "DDR5",
-                "integrated_gpu", true
+                "baseClockGhz", 4.7,
+                "boostClockGhz", 5.3,
+                "tdpW", 105,
+                "memoryType", "DDR5",
+                "integratedGpu", true
         ));
 
         CompatibilityResult result = compatibilityCheckerService.checkProducts(validComponents);
@@ -131,11 +131,11 @@ class CompatibilityCheckerServiceTest {
                 "socket", "LGA1700",
                 "cores", 10,
                 "threads", 16,
-                "base_clock_ghz", 2.5,
-                "boost_clock_ghz", 4.6,
-                "tdp_w", 65,
-                "memory_type", "DDR4",
-                "integrated_gpu", false
+                "baseClockGhz", 2.5,
+                "boostClockGhz", 4.6,
+                "tdpW", 65,
+                "memoryType", "DDR4",
+                "integratedGpu", false
         ));
 
         CompatibilityResult result = compatibilityCheckerService.checkProducts(validComponents);
@@ -148,10 +148,10 @@ class CompatibilityCheckerServiceTest {
     void checkProducts_RamAndMainboardMemoryTypeMismatch_ReturnsViolation() {
         validComponents.get(ProductCategory.RAM).setDetail(Map.of(
                 "type", "DDR4",
-                "speed_mhz", 3200,
-                "capacity_gb", 8,
+                "speedMhz", 3200,
+                "capacityGb", 8,
                 "sticks", 2,
-                "total_gb", 16
+                "totalGb", 16
         ));
 
         CompatibilityResult result = compatibilityCheckerService.checkProducts(validComponents);
@@ -164,13 +164,13 @@ class CompatibilityCheckerServiceTest {
     void checkProducts_MainboardFormFactorNotSupportedByCase_ReturnsViolation() {
         validComponents.get(ProductCategory.MAINBOARD).setDetail(Map.of(
                 "socket", "LGA1700",
-                "form_factor", "ATX",
+                "formFactor", "ATX",
                 "chipset", "Z790",
-                "memory_type", "DDR5",
-                "memory_slots", 4,
-                "max_memory_gb", 192,
-                "m2_slots", 4,
-                "pcie_version", "5.0"
+                "memoryType", "DDR5",
+                "memorySlots", 4,
+                "maxMemoryGb", 192,
+                "m2Slots", 4,
+                "pcieVersion", "5.0"
         ));
 
         CompatibilityResult result = compatibilityCheckerService.checkProducts(validComponents);
@@ -182,11 +182,11 @@ class CompatibilityCheckerServiceTest {
     @Test
     void checkProducts_GpuLengthExceedsCaseMax_ReturnsViolation() {
         validComponents.get(ProductCategory.GPU).setDetail(Map.of(
-                "vram_gb", 16,
-                "vram_type", "GDDR6X",
-                "tdp_w", 200,
-                "pcie_slot", "x16",
-                "length_mm", 358
+                "vramGb", 16,
+                "vramType", "GDDR6X",
+                "tdpW", 200,
+                "pcieSlot", "x16",
+                "lengthMm", 358
         ));
 
         CompatibilityResult result = compatibilityCheckerService.checkProducts(validComponents);
@@ -199,9 +199,9 @@ class CompatibilityCheckerServiceTest {
     void checkProducts_CoolerHeightExceedsCaseMax_ReturnsViolation() {
         validComponents.get(ProductCategory.CPU_COOLER).setDetail(Map.of(
                 "type", "Air",
-                "socket_support", List.of("LGA1700", "AM5"),
-                "height_mm", 175,
-                "tdp_support_w", 250
+                "socketSupport", List.of("LGA1700", "AM5"),
+                "heightMm", 175,
+                "tdpSupportW", 250
         ));
 
         CompatibilityResult result = compatibilityCheckerService.checkProducts(validComponents);
@@ -214,9 +214,9 @@ class CompatibilityCheckerServiceTest {
     void checkProducts_CoolerSocketNotSupportingCpuSocket_ReturnsViolation() {
         validComponents.get(ProductCategory.CPU_COOLER).setDetail(Map.of(
                 "type", "Air",
-                "socket_support", List.of("AM5", "AM4"),
-                "height_mm", 155,
-                "tdp_support_w", 220
+                "socketSupport", List.of("AM5", "AM4"),
+                "heightMm", 155,
+                "tdpSupportW", 220
         ));
 
         CompatibilityResult result = compatibilityCheckerService.checkProducts(validComponents);
@@ -232,18 +232,18 @@ class CompatibilityCheckerServiceTest {
                 "socket", "LGA1700",
                 "cores", 24,
                 "threads", 32,
-                "base_clock_ghz", 3.2,
-                "boost_clock_ghz", 6.0,
-                "tdp_w", 250,
-                "memory_type", "DDR5",
-                "integrated_gpu", true
+                "baseClockGhz", 3.2,
+                "boostClockGhz", 6.0,
+                "tdpW", 250,
+                "memoryType", "DDR5",
+                "integratedGpu", true
         ));
         validComponents.get(ProductCategory.GPU).setDetail(Map.of(
-                "vram_gb", 16,
-                "vram_type", "GDDR6X",
-                "tdp_w", 320,
-                "pcie_slot", "x16",
-                "length_mm", 300
+                "vramGb", 16,
+                "vramType", "GDDR6X",
+                "tdpW", 320,
+                "pcieSlot", "x16",
+                "lengthMm", 300
         ));
 
         CompatibilityResult result = compatibilityCheckerService.checkProducts(validComponents);

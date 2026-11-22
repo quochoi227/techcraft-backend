@@ -83,9 +83,9 @@ class PcCaseControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Tạo cấu hình PC mới thành công!"))
                 .andExpect(jsonPath("$.data.name").value("Gaming Entry 2025"))
-                .andExpect(jsonPath("$.data.use_case").value("gaming"))
-                .andExpect(jsonPath("$.data.total_price").value(18500000.00))
-                .andExpect(jsonPath("$.data.is_active").value(true));
+                .andExpect(jsonPath("$.data.useCase").value("gaming"))
+                .andExpect(jsonPath("$.data.totalPrice").value(18500000.00))
+                .andExpect(jsonPath("$.data.active").value(true));
     }
 
     @Test
@@ -211,9 +211,9 @@ class PcCaseControllerTest {
                 .andExpect(jsonPath("$.message").value("Cập nhật cấu hình PC thành công!"))
                 .andExpect(jsonPath("$.data.id").value(caseId.toString()))
                 .andExpect(jsonPath("$.data.name").value("Gaming Ultra 2026"))
-                .andExpect(jsonPath("$.data.use_case").value("gaming"))
-                .andExpect(jsonPath("$.data.total_price").value(35000000.00))
-                .andExpect(jsonPath("$.data.is_active").value(true));
+                .andExpect(jsonPath("$.data.useCase").value("gaming"))
+                .andExpect(jsonPath("$.data.totalPrice").value(35000000.00))
+                .andExpect(jsonPath("$.data.active").value(true));
     }
 
     @Test
@@ -337,9 +337,9 @@ class PcCaseControllerTest {
                 .andExpect(jsonPath("$.message").value("Lấy danh sách cấu hình PC thành công!"))
                 .andExpect(jsonPath("$.data.page").value(0))
                 .andExpect(jsonPath("$.data.size").value(12))
-                .andExpect(jsonPath("$.data.total_elements").value(1))
+                .andExpect(jsonPath("$.data.totalElements").value(1))
                 .andExpect(jsonPath("$.data.content[0].name").value("Gaming Starter"))
-                .andExpect(jsonPath("$.data.content[0].use_case").value("gaming"));
+                .andExpect(jsonPath("$.data.content[0].useCase").value("gaming"));
     }
 
     @Test
@@ -399,7 +399,7 @@ class PcCaseControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.message").value("Lấy danh sách cấu hình PC thành công!"))
-                .andExpect(jsonPath("$.data.total_elements").value(0));
+                .andExpect(jsonPath("$.data.totalElements").value(0));
     }
 
     @Test
