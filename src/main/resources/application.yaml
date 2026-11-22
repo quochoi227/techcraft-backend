@@ -51,7 +51,8 @@ app:
 
 gemini:
   api-key: ${GEMINI_API_KEY}
-  base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com/v1beta}
+  base-url: ${GEMINI_BASE_URL:https://generativelanguage.googleapis.com}
+  api-version: ${GEMINI_API_VERSION:v1beta}
   chat-model: ${GEMINI_CHAT_MODEL:gemini-3.5-flash-lite}
   embedding-model: ${GEMINI_EMBEDDING_MODEL:gemini-embedding-2}
   embedding-dimension: 3072

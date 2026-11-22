@@ -8,5 +8,7 @@ public interface GeminiService {
 
     float[] generateEmbedding(String text);
 
+    List<float[]> generateEmbeddings(List<String> texts);
+
     String generateText(String systemInstruction, List<ChatMessageDto> history, String userMessage);
 }
