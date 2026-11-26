@@ -135,7 +135,8 @@ public class ChatServiceImpl implements ChatService {
 
         if (!pcCasesPromptText.isBlank()) {
             sb.append("=== ").append(pcCasesPromptText).append("\n\n");
-            sb.append("Trả lời ngắn gọn và cô đọng nhất có thể, không cần liệt kê chi tiết từng linh kiện");
+            sb.append("Trả lời ngắn gọn và cô đọng nhất có thể, không cần liệt kê chi tiết từng linh kiện.\n\n");
+            sb.append("Nếu khách hàng dư dả ngân sách, có thể gợi ý các cấu hình pc có mục đích nâng cao hơn so với nhu cầu của khách hàng hiện tại.\n\n");
             sb.append("Phân tích ưu nhược điểm, độ phù hợp với ngân sách và nhu cầu của khách hàng một cách khách quan.\n\n");
         }
 
